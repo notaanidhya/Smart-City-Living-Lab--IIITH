@@ -2,7 +2,7 @@
 ml/evaluate.py
 ==============
 Comprehensive Model Evaluation & Explainability Suite.
-Evaluates Model A (MLP) and Model B (Autoencoder) on the 150 unseen test samples.
+evaluates dataset(first i tried on 150 generated defects data, and now 1500 images.)
 """
 
 import os
@@ -46,10 +46,6 @@ LABEL_COLS = ["has_blur", "has_underexposure", "has_overexposure",
 
 
 def generate_heatmap_overlay(original_bgr: np.ndarray, pixel_err_map: np.ndarray) -> tuple:
-    """
-    Upsamples the 128x128 pixel reconstruction error map to original image resolution,
-    applies a Jet colormap, and blends it over the original image for spatial explainability.
-    """
     h, w, _ = original_bgr.shape
     norm_err = cv2.normalize(pixel_err_map, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
     norm_err = norm_err.astype(np.uint8)

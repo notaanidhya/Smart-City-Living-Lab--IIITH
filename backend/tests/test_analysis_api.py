@@ -59,7 +59,6 @@ def test_analyze_unsupported_file_extension(client):
     assert "Unsupported file format" in response.json()["detail"]
 
 def test_analyze_corrupted_image_header(client):
-    # Fake corrupted jpeg header
     corrupt_bytes = b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00corrupted_garbage_bytes_here"
     files = {"image": ("corrupt.jpg", corrupt_bytes, "image/jpeg")}
     response = client.post("/api/analyze", files=files)
@@ -73,7 +72,6 @@ def test_analyze_empty_file(client):
     assert "empty" in response.json()["detail"]
 
 def test_get_results_pagination(client):
-    # Perform upload to ensure at least one record
     img_bytes = create_test_image_bytes(format="PNG", color=(50, 50, 50))
     client.post("/api/analyze", files={"image": ("pagination_test.png", img_bytes, "image/png")})
 
@@ -92,17 +90,14 @@ def test_get_result_by_id_and_delete(client):
     assert post_resp.status_code == 201
     record_id = post_resp.json()["id"]
 
-    # Fetch detail
     get_resp = client.get(f"/api/results/{record_id}")
     assert get_resp.status_code == 200
     assert get_resp.json()["id"] == record_id
     assert get_resp.json()["filename"] == "detail_test.jpg"
 
-    # Delete
     del_resp = client.delete(f"/api/results/{record_id}")
     assert del_resp.status_code == 204
 
-    # Confirm 404 after delete
     get_after = client.get(f"/api/results/{record_id}")
     assert get_after.status_code == 404
 

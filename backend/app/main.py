@@ -29,7 +29,6 @@ os.makedirs(os.path.join(UPLOAD_DIR, "heatmaps"), exist_ok=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     logger.info("Initializing database tables...")
     Base.metadata.create_all(bind=engine)
 
@@ -51,7 +50,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration
 cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,http://localhost:80,http://localhost,*")
 cors_origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
 
@@ -63,10 +61,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static file serving for uploads and heatmaps
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# Mount API Routers
 app.include_router(analysis.router)
 
 @app.exception_handler(Exception)
