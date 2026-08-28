@@ -1,0 +1,6 @@
+{
+  "mean_clean_error": 0.013686116953929454,
+  "std_clean_error": 0.018363197467759947,
+  "threshold_2sigma": 0.05041251188944935,
+  "calibration_scale": 0.05041251188944935
+}
