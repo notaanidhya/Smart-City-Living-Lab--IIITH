@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Image Quality Assessment service...")
 
 app = FastAPI(
-    title="AI Image Quality & Defect Detection API",
+    title="PixelShamer — AI Image Quality & Defect Detection API",
     description="Full-stack AI/CV REST API for evaluating digital image visual quality, detecting degradations, and localizing defects.",
     version="1.0.0",
     lifespan=lifespan

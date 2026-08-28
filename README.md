@@ -1,4 +1,4 @@
-# AI-Powered Image Quality & Defect Detection System
+# PixelShamer — AI Image Quality & Defect Detection System
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat&logo=FastAPI&logoColor=white)](https://fastapi.tiangolo.com)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2+-EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)](https://pytorch.org)

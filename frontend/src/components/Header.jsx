@@ -34,10 +34,10 @@ export default function Header({ activeTab, onTabChange }) {
           </div>
           <div>
             <div className="brand-title">
-              VisionQuality<span className="brand-sub">.ai</span>
+              Pixel<span className="brand-sub">Shamer</span>
             </div>
             <div className="brand-caption mono">
-              Smart City Living Lab • Hybrid CV & DL Inspection Engine
+              Smart City Living Lab • Hybrid Image Quality & Defect Detection
             </div>
           </div>
         </div>
