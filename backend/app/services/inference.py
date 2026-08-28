@@ -125,7 +125,9 @@ class InferenceService:
         cv2.imwrite(heatmap_disk_path, overlay_img)
 
         # 7. Decision Fusion & Scoring
-        quality_score, quality_label, issues = compute_quality_score(mlp_probs, recon_error=norm_err)
+        quality_score, quality_label, issues = compute_quality_score(
+            mlp_probs, recon_error=norm_err, raw_features=features
+        )
 
         # 8. Package statistics
         stats_dict = {

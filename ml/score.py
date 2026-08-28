@@ -54,11 +54,11 @@ SEVERITY_BANDS = {
 
 # P3: Differentiated Perceptual Penalty Curves
 ISSUE_PENALTIES = {
-    "blur":          {"none": 0, "low": 10, "medium": 24, "high": 38},
-    "underexposure": {"none": 0, "low":  8, "medium": 20, "high": 36},
-    "overexposure":  {"none": 0, "low":  8, "medium": 20, "high": 36},
-    "noise":         {"none": 0, "low":  6, "medium": 16, "high": 32},
-    "corruption":    {"none": 0, "low":  6, "medium": 18, "high": 34},
+    "blur":          {"none": 0, "low": 10, "medium": 24, "high": 42},
+    "underexposure": {"none": 0, "low":  8, "medium": 20, "high": 42},
+    "overexposure":  {"none": 0, "low":  8, "medium": 20, "high": 42},
+    "noise":         {"none": 0, "low":  6, "medium": 16, "high": 36},
+    "corruption":    {"none": 0, "low":  6, "medium": 18, "high": 40},
     "defect":        {"none": 0, "low": 28, "medium": 45, "high": 65},
 }
 
@@ -133,10 +133,32 @@ def determine_issue_severity(issue: str, prob: float, threshold: float) -> str:
 def compute_quality_score(
     mlp_probs: list | np.ndarray,
     recon_error: float = 0.0,
+    raw_features: dict = None,
 ) -> tuple[float, str, list[dict]]:
     """
     Compute composite quality score, label, and per-issue detail list.
+    Includes catastrophic blackout/blowout gate and multi-issue compounding cap.
     """
+    # 1. Catastrophic Information Loss Gate (Total Blackout / Blowout)
+    if raw_features is not None:
+        mean_lum = float(raw_features.get("mean_luminance", 128.0))
+        dark_ratio = float(raw_features.get("dark_pixel_ratio", 0.0))
+        bright_ratio = float(raw_features.get("bright_pixel_ratio", 0.0))
+        if mean_lum < 3.0 and dark_ratio > 0.98:
+            return 5.0, "DEFECTIVE", [{
+                "type": "underexposure",
+                "severity": "high",
+                "confidence": 1.0,
+                "details": "Catastrophic sensor blackout / total information loss (100% black frame)",
+            }]
+        if mean_lum > 252.0 and bright_ratio > 0.98:
+            return 5.0, "DEFECTIVE", [{
+                "type": "overexposure",
+                "severity": "high",
+                "confidence": 1.0,
+                "details": "Catastrophic sensor blowout / total information loss (100% white frame)",
+            }]
+
     probs = np.asarray(mlp_probs, dtype=np.float32)
     assert probs.shape == (6,), f"Expected 6 MLP probabilities, got {probs.shape}"
 
@@ -144,6 +166,7 @@ def compute_quality_score(
 
     penalty_list = []
     issues = []
+    has_high_issue = False
     
     for i, issue in enumerate(ISSUE_NAMES):
         prob = float(probs[i])
@@ -158,6 +181,8 @@ def compute_quality_score(
 
         sev = determine_issue_severity(issue, prob, thresh)
         penalty = ISSUE_PENALTIES[issue][sev]
+        if sev == "high":
+            has_high_issue = True
 
         if sev != "none":
             penalty_list.append(penalty)
@@ -198,7 +223,7 @@ def compute_quality_score(
 
     if quality_score < LABEL_THRESHOLDS["DEGRADED"] or has_severe_defect:
         quality_label = "DEFECTIVE"
-    elif quality_score < LABEL_THRESHOLDS["ACCEPTABLE"] or defect_issue is not None:
+    elif quality_score < LABEL_THRESHOLDS["ACCEPTABLE"] or defect_issue is not None or has_high_issue:
         quality_label = "DEGRADED"
     else:
         quality_label = "ACCEPTABLE"
