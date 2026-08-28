@@ -1,0 +1,39 @@
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+
+# Node & Frontend
+node_modules/
+npm-debug.log*
+/frontend/dist/
+*.local
+
+# Environment & Credentials
+.env
+.env*.local
+
+# Data & Uploads
+uploads/
+/backend/uploads/
+pgdata/
+/data/raw/
+/data/degraded/
+/data/*.csv
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
