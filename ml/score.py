@@ -42,6 +42,17 @@ AE_PENALTY_SCALE = 30.0
 AE_PENALTY_MAX   = 35.0
 
 
+# P2: Class-specific severity margin bands
+SEVERITY_BANDS = {
+    "blur":          {"medium_offset": 0.20, "high_offset": 0.50},
+    "underexposure": {"medium_offset": 0.15, "high_offset": 0.40},
+    "overexposure":  {"medium_offset": 0.15, "high_offset": 0.40},
+    "noise":         {"medium_offset": 0.25, "high_offset": 0.55},
+    "corruption":    {"medium_offset": 0.20, "high_offset": 0.45},
+    "defect":        {"medium_offset": 0.15, "high_offset": 0.35},
+}
+
+
 def load_calibrated_thresholds() -> dict:
     """Load per-class thresholds calibrated on the validation set."""
     if os.path.exists(THRESHOLDS_PATH):
@@ -52,7 +63,7 @@ def load_calibrated_thresholds() -> dict:
                 for k, v in data.items():
                     thresh = v.get("threshold", DEFAULT_THRESHOLDS.get(k, 0.5))
                     if k == "has_defect":
-                        thresh = 0.60
+                        thresh = 0.55
                     elif k == "has_blur":
                         thresh = max(0.35, thresh)
                     res[k] = thresh
@@ -62,14 +73,38 @@ def load_calibrated_thresholds() -> dict:
     return DEFAULT_THRESHOLDS.copy()
 
 
-def determine_issue_severity(prob: float, threshold: float) -> str:
-    """Categorize severity based on calibrated decision threshold."""
+def compute_defect_threshold(norm_error: float) -> float:
+    """
+    P1: Dynamic AE-Gated Threshold for Defect Detection.
+    - Pristine visual baseline (norm_error < 0.30): threshold = 0.62 (suppresses clean textures)
+    - Moderate visual baseline (0.30 <= norm_error < 0.60): threshold = 0.55
+    - Standard baseline (0.60 <= norm_error < 1.00): threshold = 0.48
+    - Elevated anomaly residual (1.00 <= norm_error < 1.50): threshold = 0.38
+    - Strong structural anomaly (norm_error >= 1.50): threshold = 0.30
+    """
+    if norm_error < 0.30:
+        return 0.62
+    elif norm_error < 0.60:
+        return 0.55
+    elif norm_error < 1.00:
+        return 0.48
+    elif norm_error < 1.50:
+        return 0.38
+    else:
+        return 0.30
+
+
+def determine_issue_severity(issue: str, prob: float, threshold: float) -> str:
+    """
+    P2: Categorize severity using per-class calibrated margin offsets.
+    """
     if prob < threshold:
         return "none"
     margin = 1.0 - threshold
-    if prob >= threshold + 0.40 * margin:
+    bands = SEVERITY_BANDS.get(issue, {"medium_offset": 0.15, "high_offset": 0.40})
+    if prob >= threshold + bands["high_offset"] * margin:
         return "high"
-    elif prob >= threshold + 0.15 * margin:
+    elif prob >= threshold + bands["medium_offset"] * margin:
         return "medium"
     else:
         return "low"
@@ -95,10 +130,13 @@ def compute_quality_score(
         thresh_key = f"has_{issue}"
         thresh = calib_thresholds.get(thresh_key, 0.5)
 
-        if issue == "defect" and recon_error > 1.2:
-            prob = max(prob, min(0.95, 0.60 + (recon_error - 1.0) * 0.35))
+        # P1: Dynamic AE Gating for Defect
+        if issue == "defect":
+            thresh = compute_defect_threshold(recon_error)
+            if recon_error > 1.2:
+                prob = max(prob, min(0.95, 0.60 + (recon_error - 1.0) * 0.30))
 
-        sev = determine_issue_severity(prob, thresh)
+        sev = determine_issue_severity(issue, prob, thresh)
         penalty = ISSUE_PENALTIES[issue][sev]
         mlp_penalty += penalty
 
