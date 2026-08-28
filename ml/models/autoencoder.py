@@ -92,27 +92,32 @@ class ConvAutoencoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.decode(self.encode(x))
 
-    def reconstruction_error(self, x: torch.Tensor, return_heatmap: bool = False):
+    def reconstruction_error(self, x: torch.Tensor, return_heatmap: bool = False, top_k_ratio: float = 0.05):
         """
-        Compute per-image mean MSE reconstruction error and optionally return
-        the spatial pixel-wise error map (before spatial averaging).
+        Compute per-image MSE reconstruction error and localized anomaly metrics.
 
         Parameters
         ----------
         x : torch.Tensor, shape (B, 3, 128, 128), values in [0, 1]
         return_heatmap : bool
             If True, also returns the per-pixel error map (B, 1, 128, 128).
+        top_k_ratio : float
+            Fraction of highest-error pixels used for localized anomaly score (default 5%).
 
         Returns
         -------
-        error : torch.Tensor, shape (B,)   -- mean MSE per image
+        anomaly_score : torch.Tensor, shape (B,) -- top-k% localized error
         heatmap (optional) : torch.Tensor, shape (B, 1, 128, 128)
         """
         with torch.no_grad():
             recon = self.forward(x)
             pixel_err = ((x - recon) ** 2).mean(dim=1, keepdim=True)   # (B,1,H,W)
-            mean_err  = pixel_err.view(pixel_err.shape[0], -1).mean(dim=1)  # (B,)
+            flat_err = pixel_err.view(pixel_err.shape[0], -1)          # (B, H*W)
+            
+            k = max(1, int(flat_err.shape[1] * top_k_ratio))
+            topk_err, _ = torch.topk(flat_err, k=k, dim=1)
+            anomaly_score = topk_err.mean(dim=1)                      # (B,)
 
         if return_heatmap:
-            return mean_err, pixel_err
-        return mean_err
+            return anomaly_score, pixel_err
+        return anomaly_score

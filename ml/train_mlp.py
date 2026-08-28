@@ -2,7 +2,8 @@
 ml/train_mlp.py
 ===============
 Training script for Model A: Multi-Head MLP Issue Classifier.
-Saves best checkpoint to ml/models/mlp_best.pt
+Includes class balance tuning and validation threshold calibration.
+Saves best checkpoint to ml/models/mlp_best.pt and thresholds to ml/models/mlp_thresholds.json.
 """
 
 import os, sys, json
@@ -13,6 +14,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from sklearn.metrics import f1_score
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
@@ -20,8 +22,9 @@ sys.path.insert(0, BASE_DIR)
 from ml.feature_extractor import FEATURE_NAMES
 from ml.models.mlp import MultiLabelMLP, NUM_CLASSES
 
-FEATURES_CSV = os.path.join(BASE_DIR, "data", "features.csv")
-CHECKPOINT   = os.path.join(BASE_DIR, "ml", "models", "mlp_best.pt")
+FEATURES_CSV   = os.path.join(BASE_DIR, "data", "features.csv")
+CHECKPOINT     = os.path.join(BASE_DIR, "ml", "models", "mlp_best.pt")
+THRESHOLDS_OUT = os.path.join(BASE_DIR, "ml", "models", "mlp_thresholds.json")
 
 LABEL_COLS = ["has_blur", "has_underexposure", "has_overexposure",
               "has_noise", "has_corruption", "has_defect"]
@@ -51,14 +54,17 @@ class FeatureDataset(Dataset):
 
 def compute_pos_weights(train_df: pd.DataFrame) -> torch.Tensor:
     """
-    Compute positive class weights for BCEWithLogitsLoss to handle class imbalance.
-    pos_weight[i] = (N - P_i) / P_i  where P_i = positives in class i.
+    Compute moderate positive class weights using square root scaling to
+    balance recall without causing excessive false positive sensitivity.
     """
     weights = []
     for col in LABEL_COLS:
         pos = train_df[col].sum()
         neg = len(train_df) - pos
-        weights.append(neg / max(pos, 1))
+        ratio = neg / max(pos, 1)
+        # Moderate square-root scaling
+        w = np.sqrt(ratio)
+        weights.append(w)
     return torch.tensor(weights, dtype=torch.float32)
 
 
@@ -69,8 +75,6 @@ def evaluate(model, loader, criterion, device):
     with torch.no_grad():
         for X_b, Y_b in loader:
             X_b, Y_b = X_b.to(device), Y_b.to(device)
-            # Use logits for loss, probabilities for metrics
-            # We'll run forward with sigmoid OFF for loss
             feats = model.input_bn(X_b)
             feats = model.backbone(feats)
             logits = torch.cat([head(feats) for head in model.heads], dim=1)
@@ -83,16 +87,53 @@ def evaluate(model, loader, criterion, device):
     avg_loss = total_loss / len(loader.dataset)
     preds = np.vstack(all_preds)
     targets = np.vstack(all_targets)
-    # Per-label accuracy at 0.5 threshold
     acc = ((preds >= 0.5) == targets).mean()
     return avg_loss, float(acc)
+
+
+def calibrate_thresholds(model, val_loader, device) -> dict:
+    """
+    Finds the threshold on the validation split that maximizes F1 for each class.
+    """
+    model.eval()
+    all_probs, all_targets = [], []
+    with torch.no_grad():
+        for X_b, Y_b in val_loader:
+            X_b = X_b.to(device)
+            probs = model(X_b)
+            all_probs.append(probs.cpu().numpy())
+            all_targets.append(Y_b.numpy())
+
+    probs = np.vstack(all_probs)
+    targets = np.vstack(all_targets)
+
+    calibrated = {}
+    print("\n[*] Calibrating per-class decision thresholds on Validation set:")
+    for i, col in enumerate(LABEL_COLS):
+        y_true = targets[:, i]
+        y_prob = probs[:, i]
+
+        best_t, best_f1 = 0.5, 0.0
+        for t in np.linspace(0.20, 0.85, 66):
+            y_pred = (y_prob >= t).astype(int)
+            f1 = f1_score(y_true, y_pred, zero_division=0)
+            if f1 > best_f1:
+                best_f1 = f1
+                best_t = float(t)
+
+        calibrated[col] = {
+            "threshold": round(best_t, 3),
+            "val_f1": round(float(best_f1), 4)
+        }
+        print(f"    - {col:<20}: threshold = {best_t:.2f} (Val F1 = {best_f1:.3f})")
+
+    return calibrated
 
 
 def main():
     print(f"[*] Training Multi-Head MLP on device: {DEVICE}")
     df = pd.read_csv(FEATURES_CSV)
 
-    # Fill any residual NaN with column median (safety net)
     for col in FEATURE_NAMES:
         df[col] = df[col].fillna(df[col].median())
 
@@ -109,10 +150,9 @@ def main():
     model = MultiLabelMLP().to(DEVICE)
 
     pos_weights = compute_pos_weights(train_df).to(DEVICE)
+    print(f"    Class pos_weights: {dict(zip(LABEL_COLS, pos_weights.cpu().numpy().round(2)))}")
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weights)
 
-    # Patched forward for loss (using logits before sigmoid)
-    # Override forward to return logits for training
     def forward_logits(x):
         x = model.input_bn(x)
         feats = model.backbone(x)
@@ -154,10 +194,10 @@ def main():
             best_val_loss = val_loss
             patience_counter = 0
             torch.save({
-                "epoch":      epoch,
+                "epoch":       epoch,
                 "model_state": model.state_dict(),
-                "val_loss":   val_loss,
-                "val_acc":    val_acc,
+                "val_loss":    val_loss,
+                "val_acc":     val_acc,
                 "feature_names": FEATURE_NAMES,
                 "label_cols":    LABEL_COLS,
             }, CHECKPOINT)
@@ -174,6 +214,14 @@ def main():
 
     print(f"\n[+] MLP training complete. Best val_loss={best_val_loss:.4f}")
     print(f"    Checkpoint saved to: {CHECKPOINT}")
+
+    # Load best checkpoint and perform threshold calibration
+    best_ckpt = torch.load(CHECKPOINT, map_location=DEVICE, weights_only=True)
+    model.load_state_dict(best_ckpt["model_state"])
+    thresholds = calibrate_thresholds(model, val_loader, DEVICE)
+    with open(THRESHOLDS_OUT, "w") as f:
+        json.dump(thresholds, f, indent=2)
+    print(f"    Calibrated thresholds saved to: {THRESHOLDS_OUT}")
 
 if __name__ == "__main__":
     main()
