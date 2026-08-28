@@ -1,11 +1,7 @@
 """
 ml/score.py
 ===========
-Quality Score Derivation Formula & Label Thresholds.
-
-This module defines the authoritative formula for computing a composite
-image quality score (0-100) from Model A predictions and the Model B
-reconstruction error.
+Quality Score Derivation Formula & Decision Fusion Engine.
 """
 
 import os
@@ -23,16 +19,16 @@ DEFAULT_THRESHOLDS = {
     "has_overexposure": 0.50,
     "has_noise": 0.40,
     "has_corruption": 0.50,
-    "has_defect": 0.50,
+    "has_defect": 0.60,
 }
 
 ISSUE_PENALTIES = {
-    "blur":          {"none": 0, "low":  8, "medium": 18, "high": 30},
-    "underexposure": {"none": 0, "low":  8, "medium": 18, "high": 30},
-    "overexposure":  {"none": 0, "low":  8, "medium": 18, "high": 30},
-    "noise":         {"none": 0, "low":  8, "medium": 16, "high": 28},
-    "corruption":    {"none": 0, "low":  8, "medium": 16, "high": 28},
-    "defect":        {"none": 0, "low": 12, "medium": 24, "high": 42},
+    "blur":          {"none": 0, "low":  8, "medium": 18, "high": 36},
+    "underexposure": {"none": 0, "low":  8, "medium": 18, "high": 36},
+    "overexposure":  {"none": 0, "low":  8, "medium": 18, "high": 36},
+    "noise":         {"none": 0, "low":  8, "medium": 18, "high": 36},
+    "corruption":    {"none": 0, "low":  8, "medium": 18, "high": 36},
+    "defect":        {"none": 0, "low": 12, "medium": 26, "high": 45},
 }
 
 LABEL_THRESHOLDS = {
@@ -56,7 +52,7 @@ def load_calibrated_thresholds() -> dict:
                 for k, v in data.items():
                     thresh = v.get("threshold", DEFAULT_THRESHOLDS.get(k, 0.5))
                     if k == "has_defect":
-                        thresh = 0.50
+                        thresh = 0.60
                     elif k == "has_blur":
                         thresh = max(0.35, thresh)
                     res[k] = thresh
@@ -85,21 +81,6 @@ def compute_quality_score(
 ) -> tuple[float, str, list[dict]]:
     """
     Compute composite quality score, label, and per-issue detail list.
-
-    Parameters
-    ----------
-    mlp_probs : array-like, shape (6,)
-        Sigmoid probabilities for [blur, underexposure, overexposure,
-        noise, corruption, defect] from Model A.
-    recon_error : float
-        Normalised reconstruction error from Model B's autoencoder
-        (divided by calibration scale, so ~1.0 = anomaly threshold).
-
-    Returns
-    -------
-    quality_score : float in [0, 100]
-    quality_label : str (ACCEPTABLE, DEGRADED, DEFECTIVE)
-    issues        : list of dicts
     """
     probs = np.asarray(mlp_probs, dtype=np.float32)
     assert probs.shape == (6,), f"Expected 6 MLP probabilities, got {probs.shape}"
@@ -114,9 +95,8 @@ def compute_quality_score(
         thresh_key = f"has_{issue}"
         thresh = calib_thresholds.get(thresh_key, 0.5)
 
-        # Defect confidence boosted if spatial anomaly is elevated
         if issue == "defect" and recon_error > 1.2:
-            prob = max(prob, min(0.95, 0.55 + (recon_error - 1.0) * 0.3))
+            prob = max(prob, min(0.95, 0.60 + (recon_error - 1.0) * 0.35))
 
         sev = determine_issue_severity(prob, thresh)
         penalty = ISSUE_PENALTIES[issue][sev]
