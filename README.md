@@ -160,14 +160,69 @@ docker compose up --build
 
 * **Frontend Web Workbench**: `http://localhost`
 * **Backend REST API**: `http://localhost:8000`
-* **API Documentation**: `http://localhost:8000/docs`
+* **API Documentation (Swagger UI)**: `http://localhost:8000/docs`
+* **Health Endpoint**: `http://localhost:8000/api/health`
 
 ---
 
-## 7. Verification & Automated Testing
+## 7. API Reference & cURL Examples
+
+### 1. Analyze an Image
+```bash
+curl -X POST http://localhost:8000/api/analyze \
+  -F "image=@docs/sample_images/sample_pristine___clean.jpg"
+```
+
+**Example JSON Response**:
+```json
+{
+  "id": 1,
+  "filename": "sample_pristine___clean.jpg",
+  "quality_score": 100.0,
+  "quality_label": "ACCEPTABLE",
+  "issues": [],
+  "statistics": {
+    "laplacian_variance": 542.18,
+    "mean_luminance": 118.42,
+    "rms_contrast": 0.482,
+    "noise_sigma_immerkaar": 2.115,
+    "mean_saturation": 0.385,
+    "dct_blockiness": 4.12,
+    "glcm_contrast": 18.42,
+    "reconstruction_error": 0.04623
+  },
+  "image_url": "/uploads/images/a1b2c3d4e5f6.jpg",
+  "heatmap_url": "/uploads/heatmaps/a1b2c3d4e5f6_heatmap.png",
+  "created_at": "2026-08-29T01:00:00Z"
+}
+```
+
+### 2. Retrieve Historical Analyses (Paginated)
+```bash
+curl -X GET "http://localhost:8000/api/results?page=1&limit=10"
+```
+
+### 3. Check System Health & Model Status
+```bash
+curl -X GET http://localhost:8000/api/health
+```
+
+---
+
+## 8. Batch Image Analysis CLI (Bonus Feature)
+
+A batch processing CLI tool is provided to process directories of images against the API and output a consolidated CSV report:
+
+```bash
+python scripts/batch_analyze.py --folder docs/sample_images --out batch_report.csv
+```
+
+---
+
+## 9. Verification & Automated Testing
 
 Run the full backend test suite:
 ```bash
 pytest backend/tests -v
 ```
-*Result: 10 passed in ~6 seconds (100% pass rate).*
+*Result: 10 passed in ~4 seconds (100% pass rate).*
