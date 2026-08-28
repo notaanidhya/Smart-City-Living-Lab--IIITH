@@ -29,7 +29,16 @@ uploads/
 pgdata/
 /data/raw/
 /data/degraded/
+/data/hybrid_benchmark/
+/data/stress_test/
 /data/*.csv
+*.db
+image_quality.db
+
+# Experiments & Candidate Checkpoints
+scratch/
+ml/models/*_v2.pt
+ml/models/*_v2.json
 
 # Logs & OS
 *.log

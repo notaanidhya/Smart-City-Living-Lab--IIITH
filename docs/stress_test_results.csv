@@ -1,0 +1,31 @@
+id,filename,quality_score,quality_label,issues,reconstruction_error,laplacian_variance,mean_luminance,latency_ms,status
+154,01_total_blackout.jpg,5.0,DEFECTIVE,underexposure(high),0.19456,0.0,0.0,2227.1,SUCCESS
+155,02_total_whiteout.jpg,5.0,DEFECTIVE,overexposure(high),0.24155,0.0,255.0,235.3,SUCCESS
+156,03_night_cityscape_neon.jpg,30.0,DEFECTIVE,underexposure(high); defect(high),0.25868,122.12,9.79,229.7,SUCCESS
+157,04_severe_underexposure.jpg,70.6,DEGRADED,underexposure(high),0.08748,4.39,6.1,236.4,SUCCESS
+158,05_high_key_overexposure.jpg,27.2,DEFECTIVE,overexposure(high); defect(high),0.32057,149.57,246.4,246.2,SUCCESS
+159,06_portrait_shallow_bokeh.jpg,100.0,ACCEPTABLE,None,0.0422,257.5,105.84,244.3,SUCCESS
+160,07_severe_motion_blur.jpg,70.6,DEGRADED,blur(high),0.04121,22.68,105.9,251.9,SUCCESS
+161,08_severe_defocus_blur.jpg,70.6,DEGRADED,blur(high),0.03668,1.76,105.91,197.9,SUCCESS
+162,09_ultra_sharp_architecture.jpg,54.5,DEFECTIVE,defect(high),0.15713,8138.91,107.35,266.9,SUCCESS
+163,10_smooth_gradient_sky.jpg,51.0,DEGRADED,blur(high); corruption(high),0.09968,0.35,119.2,213.1,SUCCESS
+164,11_high_iso_night_grain.jpg,53.0,DEGRADED,blur(high); noise(high),0.05864,2836.64,106.21,266.3,SUCCESS
+165,12_mild_film_grain.jpg,74.8,DEGRADED,noise(high),0.04533,795.57,105.47,214.2,SUCCESS
+166,13_heavy_gaussian_noise.jpg,69.9,DEGRADED,blur(low); noise(high),0.08776,6070.73,107.84,236.5,SUCCESS
+167,14_flat_uniform_color.jpg,51.0,DEGRADED,overexposure(high); corruption(high),0.11254,0.0,180.0,233.7,SUCCESS
+168,15_heavy_jpeg_meme_blocking.jpg,72.0,DEGRADED,corruption(high),0.04422,269.44,105.96,247.6,SUCCESS
+169,16_mild_web_jpeg.jpg,80.4,DEGRADED,defect(low),0.04866,1043.5,105.9,269.7,SUCCESS
+170,17_pristine_lossless_reference.jpg,100.0,ACCEPTABLE,None,0.04602,615.33,105.9,278.1,SUCCESS
+171,18_chroma_posterization.jpg,100.0,ACCEPTABLE,None,0.06016,1218.25,73.37,262.2,SUCCESS
+172,19_cracked_glass_scratch.jpg,80.4,DEGRADED,defect(low),0.05223,1065.03,106.7,265.1,SUCCESS
+173,20_sensor_dust_spot.jpg,70.6,DEGRADED,blur(high),0.04347,4.15,105.59,276.2,SUCCESS
+174,21_surface_water_stain.jpg,100.0,ACCEPTABLE,None,0.04665,598.34,105.83,270.2,SUCCESS
+175,22_punched_hole_defect.jpg,68.5,DEGRADED,defect(medium),0.06038,587.88,104.14,260.5,SUCCESS
+176,23_vector_comic_text_overlay.jpg,52.2,DEGRADED,defect(high),0.2254,989.03,104.96,253.1,SUCCESS
+177,24_software_ui_screenshot.jpg,67.1,DEGRADED,blur(low); corruption(high),0.04874,153.03,32.3,263.2,SUCCESS
+178,25_digital_infographic_chart.jpg,51.0,DEGRADED,blur(high); corruption(high),0.12874,134.01,228.69,303.4,SUCCESS
+179,26_flat_vector_illustration.jpg,72.0,DEGRADED,corruption(high),0.11714,7.28,177.24,248.5,SUCCESS
+180,27_pristine_nature_reference.jpg,100.0,ACCEPTABLE,None,0.04602,615.33,105.9,252.1,SUCCESS
+181,28_pristine_urban_reference.jpg,100.0,ACCEPTABLE,None,0.04973,652.34,110.71,273.3,SUCCESS
+182,29_pristine_vibrant_texture.jpg,100.0,ACCEPTABLE,None,0.04937,615.96,103.74,246.4,SUCCESS
+183,30_pristine_warm_indoor.jpg,100.0,ACCEPTABLE,None,0.04591,627.95,107.71,268.4,SUCCESS
