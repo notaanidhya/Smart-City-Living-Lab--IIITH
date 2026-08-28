@@ -49,8 +49,28 @@ SEVERITY_BANDS = {
     "overexposure":  {"medium_offset": 0.15, "high_offset": 0.40},
     "noise":         {"medium_offset": 0.25, "high_offset": 0.55},
     "corruption":    {"medium_offset": 0.20, "high_offset": 0.45},
-    "defect":        {"medium_offset": 0.15, "high_offset": 0.35},
+    "defect":        {"medium_offset": 0.08, "high_offset": 0.30},
 }
+
+# P3: Differentiated Perceptual Penalty Curves
+ISSUE_PENALTIES = {
+    "blur":          {"none": 0, "low": 10, "medium": 24, "high": 38},
+    "underexposure": {"none": 0, "low":  8, "medium": 20, "high": 36},
+    "overexposure":  {"none": 0, "low":  8, "medium": 20, "high": 36},
+    "noise":         {"none": 0, "low":  6, "medium": 16, "high": 32},
+    "corruption":    {"none": 0, "low":  6, "medium": 18, "high": 34},
+    "defect":        {"none": 0, "low": 28, "medium": 45, "high": 65},
+}
+
+LABEL_THRESHOLDS = {
+    "ACCEPTABLE": 75.0,
+    "DEGRADED":   40.0,
+}
+
+MLP_WEIGHT = 0.70
+AE_WEIGHT  = 0.30
+AE_PENALTY_SCALE = 30.0
+AE_PENALTY_MAX   = 35.0
 
 
 def load_calibrated_thresholds() -> dict:
@@ -122,7 +142,7 @@ def compute_quality_score(
 
     calib_thresholds = load_calibrated_thresholds()
 
-    mlp_penalty = 0.0
+    penalty_list = []
     issues = []
     
     for i, issue in enumerate(ISSUE_NAMES):
@@ -138,15 +158,28 @@ def compute_quality_score(
 
         sev = determine_issue_severity(issue, prob, thresh)
         penalty = ISSUE_PENALTIES[issue][sev]
-        mlp_penalty += penalty
 
         if sev != "none":
+            penalty_list.append(penalty)
             issues.append({
                 "type":       issue,
                 "severity":   sev,
                 "confidence": round(prob, 4),
                 "details":    f"Confidence {prob:.2%}; severity={sev}; penalty={penalty}",
             })
+
+    # P4: Multi-Issue Compounding Cap (Diminishing returns on secondary & tertiary issues)
+    if not penalty_list:
+        mlp_penalty = 0.0
+    elif len(penalty_list) == 1:
+        mlp_penalty = float(penalty_list[0])
+    else:
+        sorted_penalties = sorted(penalty_list, reverse=True)
+        mlp_penalty = float(sorted_penalties[0])
+        if len(sorted_penalties) > 1:
+            mlp_penalty += float(sorted_penalties[1]) * 0.70  # 70% weight on secondary issue
+        for extra in sorted_penalties[2:]:
+            mlp_penalty += float(extra) * 0.50                # 50% weight on tertiary+ issues
 
     # Anomaly penalty based on autoencoder reconstruction residual
     ae_excess = max(0.0, recon_error - 0.9)
@@ -155,13 +188,17 @@ def compute_quality_score(
     total_penalty = MLP_WEIGHT * mlp_penalty + AE_WEIGHT * ae_penalty
     quality_score = float(np.clip(100.0 - total_penalty, 0.0, 100.0))
 
-    # Determine Label
+    # P7: Confidence-Weighted Label Assignment & Consistency
     defect_issue = next((iss for iss in issues if iss["type"] == "defect"), None)
-    has_severe_defect = (defect_issue is not None and defect_issue["severity"] == "high") or recon_error > 1.8
+    has_severe_defect = (
+        defect_issue is not None 
+        and defect_issue["severity"] == "high" 
+        and defect_issue["confidence"] >= 0.70
+    ) or recon_error > 1.8
 
     if quality_score < LABEL_THRESHOLDS["DEGRADED"] or has_severe_defect:
         quality_label = "DEFECTIVE"
-    elif quality_score < LABEL_THRESHOLDS["ACCEPTABLE"]:
+    elif quality_score < LABEL_THRESHOLDS["ACCEPTABLE"] or defect_issue is not None:
         quality_label = "DEGRADED"
     else:
         quality_label = "ACCEPTABLE"
