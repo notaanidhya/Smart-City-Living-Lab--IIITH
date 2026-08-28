@@ -95,23 +95,23 @@ def load_calibrated_thresholds() -> dict:
 
 def compute_defect_threshold(norm_error: float) -> float:
     """
-    P1: Dynamic AE-Gated Threshold for Defect Detection.
-    - Pristine visual baseline (norm_error < 0.30): threshold = 0.62 (suppresses clean textures)
-    - Moderate visual baseline (0.30 <= norm_error < 0.60): threshold = 0.55
-    - Standard baseline (0.60 <= norm_error < 1.00): threshold = 0.48
-    - Elevated anomaly residual (1.00 <= norm_error < 1.50): threshold = 0.38
-    - Strong structural anomaly (norm_error >= 1.50): threshold = 0.30
+    Proposal A: Refined Adaptive AE-Gated Threshold for Defect Detection.
+    - Pristine visual baseline (norm_error < 0.25): threshold = 0.68
+    - Extended clean zone (0.25 <= norm_error < 0.55): threshold = 0.62 (suppresses clean textures)
+    - Moderate visual baseline (0.55 <= norm_error < 0.85): threshold = 0.55
+    - Elevated anomaly residual (0.85 <= norm_error < 1.25): threshold = 0.42
+    - Strong structural anomaly (norm_error >= 1.25): threshold = 0.32
     """
-    if norm_error < 0.30:
+    if norm_error < 0.25:
+        return 0.68
+    elif norm_error < 0.55:
         return 0.62
-    elif norm_error < 0.60:
+    elif norm_error < 0.85:
         return 0.55
-    elif norm_error < 1.00:
-        return 0.48
-    elif norm_error < 1.50:
-        return 0.38
+    elif norm_error < 1.25:
+        return 0.42
     else:
-        return 0.30
+        return 0.32
 
 
 def determine_issue_severity(issue: str, prob: float, threshold: float) -> str:
@@ -164,28 +164,39 @@ def compute_quality_score(
 
     calib_thresholds = load_calibrated_thresholds()
 
-    penalty_list = []
-    issues = []
-    has_high_issue = False
-    
+    raw_issues = {}
     for i, issue in enumerate(ISSUE_NAMES):
         prob = float(probs[i])
         thresh_key = f"has_{issue}"
         thresh = calib_thresholds.get(thresh_key, 0.5)
 
-        # P1: Dynamic AE Gating for Defect
+        # Proposal A: Dynamic AE Gating for Defect
         if issue == "defect":
             thresh = compute_defect_threshold(recon_error)
             if recon_error > 1.2:
                 prob = max(prob, min(0.95, 0.60 + (recon_error - 1.0) * 0.30))
 
         sev = determine_issue_severity(issue, prob, thresh)
-        penalty = ISSUE_PENALTIES[issue][sev]
-        if sev == "high":
-            has_high_issue = True
+        raw_issues[issue] = {"severity": sev, "confidence": prob, "threshold": thresh}
 
+    # Proposal E: Blur-Noise Cross-Class Suppression
+    # If severe noise is present and blur probability is borderline (<0.55), suppress noise-induced blur artifact
+    if raw_issues["noise"]["severity"] == "high":
+        if raw_issues["blur"]["severity"] == "low" or (raw_issues["blur"]["severity"] == "medium" and raw_issues["blur"]["confidence"] < 0.55):
+            raw_issues["blur"]["severity"] = "none"
+
+    penalty_list = []
+    issues = []
+    has_high_issue = False
+
+    for issue, data in raw_issues.items():
+        sev = data["severity"]
+        prob = data["confidence"]
         if sev != "none":
+            penalty = ISSUE_PENALTIES[issue][sev]
             penalty_list.append(penalty)
+            if sev == "high":
+                has_high_issue = True
             issues.append({
                 "type":       issue,
                 "severity":   sev,
