@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Terminal, ChevronDown, ChevronUp, BarChart2 } from "lucide-react";
 
 export default function MetricsMatrix({ statistics }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   if (!statistics) return null;
 
