@@ -80,6 +80,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 @app.get("/api/health", response_model=HealthResponse, tags=["System"])
+@app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
     """Health check endpoint exposing service readiness and model loading status."""
     return HealthResponse(
