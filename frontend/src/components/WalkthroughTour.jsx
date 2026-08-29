@@ -51,9 +51,9 @@ const TOUR_STEPS = [
       "Evaluates continuous scoring and issue classification live",
       "Pre-loaded from the official 1,280-image benchmark suite"
     ],
-    actionLabel: "Try Physical Defect",
+    actionLabel: "Try Pristine Clean",
     onAction: (helpers) => {
-      helpers.loadPresetSample("defect");
+      helpers.loadPresetSample("clean");
     },
   },
   {
@@ -155,6 +155,7 @@ export default function WalkthroughTour({
   onClose,
   onSwitchTab,
   onLoadPreset,
+  hasActiveResult,
 }) {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
@@ -254,6 +255,11 @@ export default function WalkthroughTour({
   useEffect(() => {
     if (!isOpen) return;
 
+    // Auto-load Pristine Clean preset if advancing past Welcome without any active result
+    if (currentStepIdx >= 1 && !hasActiveResult) {
+      onLoadPreset?.("clean");
+    }
+
     // Handle view tabs during tour
     if (step.id === "history") {
       onSwitchTab?.("workspace"); // Keep in workspace to highlight history button
@@ -268,7 +274,7 @@ export default function WalkthroughTour({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [currentStepIdx, isOpen]);
+  }, [currentStepIdx, isOpen, hasActiveResult]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -286,9 +292,12 @@ export default function WalkthroughTour({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, currentStepIdx]);
+  }, [isOpen, currentStepIdx, hasActiveResult]);
 
   const handleNext = () => {
+    if (!hasActiveResult) {
+      onLoadPreset?.("clean");
+    }
     if (isLastStep) {
       handleClose();
     } else {

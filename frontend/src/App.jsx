@@ -156,6 +156,7 @@ export default function App() {
         onClose={() => setIsTourOpen(false)}
         onSwitchTab={setActiveTab}
         onLoadPreset={handleTourLoadPreset}
+        hasActiveResult={!!activeResult}
       />
     </div>
   );
