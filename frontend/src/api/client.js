@@ -74,16 +74,23 @@ export const analyzeImage = async (file) => {
   const formData = new FormData();
   formData.append("image", file);
 
-  const response = await apiClient.post("/api/analyze", formData, {
+  const sid = getSessionId();
+  const response = await apiClient.post(`/api/analyze?session_id=${encodeURIComponent(sid)}`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
+      "X-Session-ID": sid,
     },
   });
   return response.data;
 };
 
 export const getResults = async (page = 1, limit = 10, qualityLabel = null, scope = "session") => {
-  const params = { page, limit, scope };
+  const params = {
+    page,
+    limit,
+    scope,
+    session_id: getSessionId(),
+  };
   if (qualityLabel && qualityLabel !== "ALL") {
     params.quality_label = qualityLabel;
   }

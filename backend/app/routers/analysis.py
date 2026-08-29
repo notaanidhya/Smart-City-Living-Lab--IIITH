@@ -22,6 +22,7 @@ UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join(os.path.dirname(os.path.dirnam
 @router.post("/analyze", response_model=AnalysisResponse, status_code=status.HTTP_201_CREATED)
 async def analyze_image_endpoint(
     image: UploadFile = File(..., description="Image file to analyze (JPEG, PNG, WEBP, BMP)"),
+    session_id: Optional[str] = Query(None, description="Client session ID for private history tracking"),
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     db: Session = Depends(get_db)
 ):
@@ -29,6 +30,8 @@ async def analyze_image_endpoint(
     Evaluates visual quality of an uploaded image, detects degradations,
     localizes defects with a spatial heatmap, and stores the results.
     """
+    active_session = session_id or x_session_id or "default_session"
+
     # 1. Validate extension
     filename = image.filename or "uploaded_image.jpg"
     ext = os.path.splitext(filename)[1].lower()
@@ -81,7 +84,7 @@ async def analyze_image_endpoint(
 
     # 5. Persist to Database
     db_record = AnalysisRecord(
-        session_id=x_session_id or "default_session",
+        session_id=active_session,
         filename=result["filename"],
         stored_filename=result["stored_filename"],
         quality_score=result["quality_score"],
@@ -114,13 +117,20 @@ def list_results(
     limit: int = Query(10, ge=1, le=100, description="Items per page"),
     quality_label: Optional[str] = Query(None, description="Filter by quality label (ACCEPTABLE, DEGRADED, DEFECTIVE)"),
     scope: str = Query("session", description="Filter by 'session' (user private history) or 'global' (all history)"),
+    session_id: Optional[str] = Query(None, description="Client session ID for private history tracking"),
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     db: Session = Depends(get_db)
 ):
     """Retrieves paginated history of previous image evaluations."""
+    active_session = session_id or x_session_id
     query = db.query(AnalysisRecord)
-    if scope == "session" and x_session_id:
-        query = query.filter(AnalysisRecord.session_id == x_session_id)
+
+    if scope == "session":
+        if active_session:
+            query = query.filter(AnalysisRecord.session_id == active_session)
+        else:
+            query = query.filter(AnalysisRecord.session_id == "default_session")
+
     if quality_label:
         query = query.filter(AnalysisRecord.quality_label == quality_label.upper())
 
