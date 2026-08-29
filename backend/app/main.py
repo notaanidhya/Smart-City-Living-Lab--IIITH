@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to load models during startup: {e}", exc_info=True)
 
     yield
-    # Shutdown
+    
     logger.info("Shutting down Image Quality Assessment service...")
 
 app = FastAPI(
@@ -86,10 +86,15 @@ async def health_check():
         }
     )
 
-@app.get("/", tags=["System"])
-async def root():
-    return {
-        "message": "AI Image Quality & Defect Detection API is active.",
-        "docs": "/docs",
-        "health": "/api/health"
-    }
+FRONTEND_DIST = os.getenv("FRONTEND_DIST", "")
+
+if FRONTEND_DIST and os.path.exists(FRONTEND_DIST):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+else:
+    @app.get("/", tags=["System"])
+    async def root():
+        return {
+            "message": "AI Image Quality & Defect Detection API is active.",
+            "docs": "/docs",
+            "health": "/api/health"
+        }

@@ -8,8 +8,6 @@ import io
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "raw")
 TARGET_COUNT = 200
 
-# Curated list of varied photograph IDs (landscapes, urban, objects, animals, indoor, textures)
-# Picsum has verified high-quality IDs up to ~1084
 VALID_IDS = [
     10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30,
     36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 48, 49, 50, 51, 52, 54, 55, 56, 57, 58,
@@ -36,11 +34,10 @@ def download_and_validate_image(pic_id, index, output_dir):
             with urllib.request.urlopen(req, timeout=12) as response:
                 content = response.read()
                 
-            # Verify and sanitize with PIL
+
             img = Image.open(io.BytesIO(content))
-            img.verify() # Verify file integrity
+            img.verify()
             
-            # Reopen for saving as RGB JPEG
             img = Image.open(io.BytesIO(content)).convert("RGB")
             img.save(target_path, "JPEG", quality=95)
             return True, index, pic_id

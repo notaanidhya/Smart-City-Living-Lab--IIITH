@@ -60,20 +60,49 @@ class InferenceService:
         self.is_ready = True
         logger.info("InferenceService successfully initialized and models loaded.")
 
-    def generate_heatmap_overlay(self, original_bgr: np.ndarray, pixel_err_map: np.ndarray) -> np.ndarray:
-        """Upsamples 128x128 error map and applies Jet colormap overlay."""
+    def generate_heatmap_overlay(
+        self, original_bgr: np.ndarray, global_err_map: np.ndarray, quad_err_maps: list[np.ndarray] | None = None
+    ) -> np.ndarray:
+        """
+        Generates explainability heatmap overlay blending global structure with native-resolution quadrant crops.
+        """
         h, w, _ = original_bgr.shape
-        norm_err = cv2.normalize(pixel_err_map, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-        norm_err = norm_err.astype(np.uint8)
-        resized_heatmap = cv2.resize(norm_err, (w, h), interpolation=cv2.INTER_CUBIC)
-        color_heatmap = cv2.applyColorMap(resized_heatmap, cv2.COLORMAP_JET)
+        norm_glob = cv2.normalize(global_err_map, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX).astype(np.uint8)
+        resized_glob = cv2.resize(norm_glob, (w, h), interpolation=cv2.INTER_CUBIC)
+
+        if quad_err_maps and len(quad_err_maps) == 4:
+            mid_y, mid_x = h // 2, w // 2
+            stitched = np.zeros((h, w), dtype=np.uint8)
+            # Quadrant maps: TL, TR, BL, BR
+            stitched[0:mid_y, 0:mid_x] = cv2.resize(
+                cv2.normalize(quad_err_maps[0], None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8),
+                (mid_x, mid_y),
+                interpolation=cv2.INTER_CUBIC,
+            )
+            stitched[0:mid_y, mid_x:w] = cv2.resize(
+                cv2.normalize(quad_err_maps[1], None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8),
+                (w - mid_x, mid_y),
+                interpolation=cv2.INTER_CUBIC,
+            )
+            stitched[mid_y:h, 0:mid_x] = cv2.resize(
+                cv2.normalize(quad_err_maps[2], None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8),
+                (mid_x, h - mid_y),
+                interpolation=cv2.INTER_CUBIC,
+            )
+            stitched[mid_y:h, mid_x:w] = cv2.resize(
+                cv2.normalize(quad_err_maps[3], None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8),
+                (w - mid_x, h - mid_y),
+                interpolation=cv2.INTER_CUBIC,
+            )
+            fused_map = cv2.addWeighted(resized_glob, 0.45, stitched, 0.55, 0)
+        else:
+            fused_map = resized_glob
+
+        color_heatmap = cv2.applyColorMap(fused_map, cv2.COLORMAP_JET)
         overlay = cv2.addWeighted(original_bgr, 0.65, color_heatmap, 0.35, 0)
         return overlay
 
     def analyze_image(self, image_bytes: bytes, original_filename: str, upload_dir: str) -> dict:
-        """
-        Executes complete end-to-end quality assessment pipeline on an uploaded image.
-        """
         if not self.is_ready:
             raise RuntimeError("InferenceService models are not loaded.")
 
@@ -109,22 +138,39 @@ class InferenceService:
         with torch.no_grad():
             mlp_probs = self.mlp_model(feat_tensor).squeeze(0).cpu().numpy()
 
-        # 5. Model B (Autoencoder) Inference
-        rgb_128 = cv2.cvtColor(cv2.resize(image_bgr, (IMG_SIZE, IMG_SIZE)), cv2.COLOR_BGR2RGB)
-        img_tensor = torch.tensor(rgb_128.transpose(2, 0, 1), dtype=torch.float32).unsqueeze(0).to(self.device) / 255.0
+        # 5. Model B (Autoencoder) Multi-Scale Inference
+        h, w = image_bgr.shape[:2]
+        rgb_global = cv2.cvtColor(cv2.resize(image_bgr, (IMG_SIZE, IMG_SIZE)), cv2.COLOR_BGR2RGB)
+        
+        # Native quadrant crops for high-resolution heatmap fidelity
+        mid_y, mid_x = h // 2, w // 2
+        crops = [
+            image_bgr[0:mid_y, 0:mid_x],
+            image_bgr[0:mid_y, mid_x:w],
+            image_bgr[mid_y:h, 0:mid_x],
+            image_bgr[mid_y:h, mid_x:w],
+        ]
+        
+        tensors = [torch.tensor(rgb_global.transpose(2, 0, 1), dtype=torch.float32) / 255.0]
+        for c in crops:
+            c_rgb = cv2.cvtColor(cv2.resize(c, (IMG_SIZE, IMG_SIZE)), cv2.COLOR_BGR2RGB)
+            tensors.append(torch.tensor(c_rgb.transpose(2, 0, 1), dtype=torch.float32) / 255.0)
+            
+        ae_batch = torch.stack(tensors, dim=0).to(self.device) # (5, 3, 128, 128)
 
         with torch.no_grad():
-            recon_err, pixel_err = self.ae_model.reconstruction_error(img_tensor, return_heatmap=True)
-            raw_err_val = float(recon_err.item())
-            err_map_2d = pixel_err.squeeze().cpu().numpy()
+            recon_errs, pixel_errs = self.ae_model.reconstruction_error(ae_batch, return_heatmap=True)
+            raw_err_val = float(recon_errs[0].item())
+            global_err_map = pixel_errs[0].squeeze().cpu().numpy()
+            quad_err_maps = [pixel_errs[i].squeeze().cpu().numpy() for i in range(1, 5)]
 
         norm_err = raw_err_val / max(self.ae_calibration_scale, 1e-4)
 
-        # 6. Generate and save explainability heatmap
-        overlay_img = self.generate_heatmap_overlay(image_bgr, err_map_2d)
+        # 6. Generate and save high-resolution multi-scale explainability heatmap
+        overlay_img = self.generate_heatmap_overlay(image_bgr, global_err_map, quad_err_maps)
         cv2.imwrite(heatmap_disk_path, overlay_img)
 
-        # 7. Decision Fusion & Scoring
+        # 7. Decision Fusion & Scoring (Preserving calibrated pristine score baseline)
         quality_score, quality_label, issues = compute_quality_score(
             mlp_probs, recon_error=norm_err, raw_features=features
         )

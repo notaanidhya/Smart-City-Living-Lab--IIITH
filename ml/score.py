@@ -10,6 +10,7 @@ import numpy as np
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 THRESHOLDS_PATH = os.path.join(BASE_DIR, "ml", "models", "mlp_thresholds.json")
+CALIBRATOR_PATH = os.path.join(BASE_DIR, "ml", "models", "score_calibrator.json")
 
 ISSUE_NAMES = ["blur", "underexposure", "overexposure", "noise", "corruption", "defect"]
 
@@ -22,27 +23,6 @@ DEFAULT_THRESHOLDS = {
     "has_defect": 0.60,
 }
 
-ISSUE_PENALTIES = {
-    "blur":          {"none": 0, "low":  8, "medium": 18, "high": 36},
-    "underexposure": {"none": 0, "low":  8, "medium": 18, "high": 36},
-    "overexposure":  {"none": 0, "low":  8, "medium": 18, "high": 36},
-    "noise":         {"none": 0, "low":  8, "medium": 18, "high": 36},
-    "corruption":    {"none": 0, "low":  8, "medium": 18, "high": 36},
-    "defect":        {"none": 0, "low": 12, "medium": 26, "high": 45},
-}
-
-LABEL_THRESHOLDS = {
-    "ACCEPTABLE": 75.0,
-    "DEGRADED":   40.0,
-}
-
-MLP_WEIGHT = 0.70
-AE_WEIGHT  = 0.30
-AE_PENALTY_SCALE = 30.0
-AE_PENALTY_MAX   = 35.0
-
-
-# P2: Class-specific severity margin bands
 SEVERITY_BANDS = {
     "blur":          {"medium_offset": 0.20, "high_offset": 0.50},
     "underexposure": {"medium_offset": 0.15, "high_offset": 0.40},
@@ -52,14 +32,14 @@ SEVERITY_BANDS = {
     "defect":        {"medium_offset": 0.08, "high_offset": 0.30},
 }
 
-# P3: Differentiated Perceptual Penalty Curves
+
 ISSUE_PENALTIES = {
-    "blur":          {"none": 0, "low": 10, "medium": 24, "high": 42},
-    "underexposure": {"none": 0, "low":  8, "medium": 20, "high": 42},
-    "overexposure":  {"none": 0, "low":  8, "medium": 20, "high": 42},
-    "noise":         {"none": 0, "low":  6, "medium": 16, "high": 36},
-    "corruption":    {"none": 0, "low":  6, "medium": 18, "high": 40},
-    "defect":        {"none": 0, "low": 28, "medium": 45, "high": 65},
+    "blur":          {"none": 0, "low": 8,  "medium": 22, "high": 42},
+    "underexposure": {"none": 0, "low": 10, "medium": 26, "high": 48},
+    "overexposure":  {"none": 0, "low": 10, "medium": 26, "high": 48},
+    "noise":         {"none": 0, "low": 5,  "medium": 14, "high": 30},
+    "corruption":    {"none": 0, "low": 8,  "medium": 22, "high": 40},
+    "defect":        {"none": 0, "low": 25, "medium": 45, "high": 65},
 }
 
 LABEL_THRESHOLDS = {
@@ -72,9 +52,41 @@ AE_WEIGHT  = 0.30
 AE_PENALTY_SCALE = 30.0
 AE_PENALTY_MAX   = 35.0
 
+_CALIBRATOR_CACHE = None
+
+def load_score_calibrator() -> tuple[np.ndarray, np.ndarray] | None:
+
+    global _CALIBRATOR_CACHE
+    if _CALIBRATOR_CACHE is not None:
+        return _CALIBRATOR_CACHE
+    if os.path.exists(CALIBRATOR_PATH):
+        try:
+            with open(CALIBRATOR_PATH, "r") as f:
+                data = json.load(f)
+                x_k = np.array(data["x_knots"], dtype=np.float64)
+                y_k = np.array(data["y_knots"], dtype=np.float64)
+                _CALIBRATOR_CACHE = (x_k, y_k)
+                return _CALIBRATOR_CACHE
+        except Exception:
+            pass
+    return None
+
+def calibrate_quality_score(raw_score: float) -> float:
+
+    if raw_score <= 5.0:
+        return round(raw_score, 1)
+    if raw_score >= 99.5:
+        return 100.0
+    calib = load_score_calibrator()
+    if calib is not None:
+        x_k, y_k = calib
+        calibrated = float(np.interp(raw_score, x_k, y_k))
+        return round(float(np.clip(calibrated, 0.0, 100.0)), 1)
+    return round(raw_score, 1)
+
 
 def load_calibrated_thresholds() -> dict:
-    """Load per-class thresholds calibrated on the validation set."""
+
     if os.path.exists(THRESHOLDS_PATH):
         try:
             with open(THRESHOLDS_PATH, "r") as f:
@@ -95,29 +107,15 @@ def load_calibrated_thresholds() -> dict:
 
 def compute_defect_threshold(norm_error: float) -> float:
     """
-    Proposal A: Refined Adaptive AE-Gated Threshold for Defect Detection.
-    - Pristine visual baseline (norm_error < 0.25): threshold = 0.68
-    - Extended clean zone (0.25 <= norm_error < 0.55): threshold = 0.62 (suppresses clean textures)
-    - Moderate visual baseline (0.55 <= norm_error < 0.85): threshold = 0.55
-    - Elevated anomaly residual (0.85 <= norm_error < 1.25): threshold = 0.42
-    - Strong structural anomaly (norm_error >= 1.25): threshold = 0.32
+    Continuous Power-Exponential Gating for physical defect detection.
+    Smoothly decays from 0.70 (pristine baseline) down to 0.38 (high-anomaly),
+    eliminating discrete step cliffs while strictly protecting textured clean images.
     """
-    if norm_error < 0.25:
-        return 0.68
-    elif norm_error < 0.55:
-        return 0.62
-    elif norm_error < 0.85:
-        return 0.55
-    elif norm_error < 1.25:
-        return 0.42
-    else:
-        return 0.32
+    ne = max(0.0, float(norm_error))
+    return float(0.38 + 0.32 * np.exp(-3.5 * (ne ** 1.5)))
 
 
 def determine_issue_severity(issue: str, prob: float, threshold: float) -> str:
-    """
-    P2: Categorize severity using per-class calibrated margin offsets.
-    """
     if prob < threshold:
         return "none"
     margin = 1.0 - threshold
@@ -170,7 +168,7 @@ def compute_quality_score(
         thresh_key = f"has_{issue}"
         thresh = calib_thresholds.get(thresh_key, 0.5)
 
-        # Proposal A: Dynamic AE Gating for Defect
+        # Dynamic AE Gating for Defect
         if issue == "defect":
             thresh = compute_defect_threshold(recon_error)
             if recon_error > 1.2:
@@ -179,7 +177,7 @@ def compute_quality_score(
         sev = determine_issue_severity(issue, prob, thresh)
         raw_issues[issue] = {"severity": sev, "confidence": prob, "threshold": thresh}
 
-    # Proposal E: Blur-Noise Cross-Class Suppression
+    # Blur-Noise Cross-Class Suppression
     # If severe noise is present and blur probability is borderline (<0.55), suppress noise-induced blur artifact
     if raw_issues["noise"]["severity"] == "high":
         if raw_issues["blur"]["severity"] == "low" or (raw_issues["blur"]["severity"] == "medium" and raw_issues["blur"]["confidence"] < 0.55):
@@ -204,7 +202,7 @@ def compute_quality_score(
                 "details":    f"Confidence {prob:.2%}; severity={sev}; penalty={penalty}",
             })
 
-    # P4: Multi-Issue Compounding Cap (Diminishing returns on secondary & tertiary issues)
+    # Multi-Issue Compounding Cap (Diminishing returns on secondary & tertiary issues)
     if not penalty_list:
         mlp_penalty = 0.0
     elif len(penalty_list) == 1:
@@ -222,9 +220,10 @@ def compute_quality_score(
     ae_penalty = float(np.clip(ae_excess * AE_PENALTY_SCALE, 0.0, AE_PENALTY_MAX))
 
     total_penalty = MLP_WEIGHT * mlp_penalty + AE_WEIGHT * ae_penalty
-    quality_score = float(np.clip(100.0 - total_penalty, 0.0, 100.0))
+    raw_score = float(np.clip(100.0 - total_penalty, 0.0, 100.0))
+    quality_score = calibrate_quality_score(raw_score)
 
-    # P7: Confidence-Weighted Label Assignment & Consistency
+    # Confidence-Weighted Label Assignment & Consistency
     defect_issue = next((iss for iss in issues if iss["type"] == "defect"), None)
     has_severe_defect = (
         defect_issue is not None 

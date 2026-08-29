@@ -27,7 +27,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-IMG_SIZE     = 128          # model expects 128x128 RGB input
+IMG_SIZE     = 256          # model standard RGB input resolution (256x256)
 LATENT_DEPTH = 256          # bottleneck channel depth
 
 

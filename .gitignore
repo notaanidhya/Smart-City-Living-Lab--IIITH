@@ -1,4 +1,4 @@
-# Python & Virtual Environments
+#python virtual environments :)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -13,17 +13,17 @@ dist/
 *.egg-info/
 .pytest_cache/
 
-# Node & Frontend
+# Frontend :(
 node_modules/
 npm-debug.log*
 /frontend/dist/
 *.local
 
-# Environment & Credentials
+# env files
 .env
 .env*.local
 
-# Data & Uploads
+# Data data data
 uploads/
 /backend/uploads/
 pgdata/
@@ -35,12 +35,12 @@ pgdata/
 *.db
 image_quality.db
 
-# Experiments & Candidate Checkpoints
+# Checkpoints(to proceed or not with the changed params)
 scratch/
 ml/models/*_v2.pt
 ml/models/*_v2.json
 
-# Logs & OS
+# Logs
 *.log
 .DS_Store
 Thumbs.db

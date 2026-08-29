@@ -3,6 +3,9 @@ ml/evaluate.py
 ==============
 Comprehensive Model Evaluation & Explainability Suite.
 evaluates dataset(first i tried on 150 generated defects data, and now 1500 images.)
+
+
+most important and most complicated
 """
 
 import os
@@ -308,9 +311,12 @@ def main():
     print("[*] Generating comprehensive Markdown Evaluation Report at docs/evaluation_report.md...")
     
     report_md = f"""# Model Evaluation & Experimental Rigor Report
+
+
+    
 **Assessment Deliverable - Section 9 & 10 Evaluation & Explainability**
 
----
+    *Tried to keep comments simple, but i guess they are just too big to read, idk im gonna keep it this way.
 
 ## 1. Executive Summary
 
@@ -327,7 +333,6 @@ This report documents the quantitative and qualitative evaluation of the **Hybri
 ## 2. Quantitative Classification Results (Test Split)
 
 | Degradation Family | Optimal Threshold | Accuracy | Precision | Recall | F1-Score | ROC-AUC | TP | FP | FN | TN |
-|---|---|---|---|---|---|---|---|---|---|---|
 """
     for m in metrics_table:
         report_md += f"| **{m['Issue Class']}** | {m['Threshold']:.2f} | {m['Accuracy']:.1%} | {m['Precision']:.3f} | {m['Recall']:.3f} | {m['F1-Score']:.3f} | {m['ROC-AUC']:.3f} | {m['TP']} | {m['FP']} | {m['FN']} | {m['TN']} |\n"

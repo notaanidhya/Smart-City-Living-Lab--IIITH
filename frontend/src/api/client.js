@@ -1,7 +1,16 @@
 import axios from "axios";
 
-// Default to same origin (for Docker Nginx proxy) or localhost:8000 for local dev
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const getBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== "undefined" && window.location.port === "5173") {
+    return "http://localhost:8000";
+  }
+  return "";
+};
+
+const API_BASE_URL = getBaseUrl();
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
