@@ -1,14 +1,28 @@
 # AI Image Quality and Defect Detection System
 
+[![Live Demo](https://img.shields.io/badge/Live%20App-pixel--shamer.vercel.app-000000.svg?style=for-the-badge&logo=Vercel&logoColor=white)](https://pixel-shamer.vercel.app/)
+[![API Live](https://img.shields.io/badge/API%20Docs-pixelshamer--api.onrender.com-46E3B7.svg?style=for-the-badge&logo=Render&logoColor=white)](https://pixelshamer-api.onrender.com/docs)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat&logo=FastAPI&logoColor=white)](https://fastapi.tiangolo.com)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2+-EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)](https://pytorch.org)
 [![React](https://img.shields.io/badge/React-18+-61DAFB.svg?style=flat&logo=React&logoColor=black)](https://reactjs.org)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB.svg?style=flat&logo=Python&logoColor=white)](https://python.org)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg?style=flat&logo=Docker&logoColor=white)](https://docker.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon.tech-336791.svg?style=flat&logo=PostgreSQL&logoColor=white)](https://neon.tech)
 [![Tests](https://img.shields.io/badge/Tests-10%2F10%20Passing-brightgreen.svg)](backend/tests)
 [![ROC-AUC](https://img.shields.io/badge/Macro%20ROC--AUC-94.8%25-blue.svg)](#6-evaluation-results)
 
 A production-grade full-stack AI and Computer Vision system that evaluates digital image quality, diagnoses multi-label degradation families, detects anomalous physical defects without supervision, and delivers interpretable spatial explanations through interactive reconstruction heatmaps. Built purely on local inference with no external vision APIs.
+
+---
+
+## 🌐 Live Production Deployment
+
+The system is deployed and publicly accessible 24/7 across high-availability cloud infrastructure:
+
+* **Production Web Workbench (Frontend)**: [https://pixel-shamer.vercel.app/](https://pixel-shamer.vercel.app/)
+* **Production REST API (Backend)**: [https://pixelshamer-api.onrender.com/](https://pixelshamer-api.onrender.com/)
+* **Interactive API Documentation (Swagger UI)**: [https://pixelshamer-api.onrender.com/docs](https://pixelshamer-api.onrender.com/docs)
+* **Real-time Health & Diagnostic Endpoint**: [https://pixelshamer-api.onrender.com/api/health](https://pixelshamer-api.onrender.com/api/health)
+* **Persistent Database**: Neon.tech Serverless PostgreSQL (Automated pooling & SSL encryption)
+* **24/7 Uptime Keepalive**: Monitored via UptimeRobot automated pings (0 cold-start latency)
 
 ---
 
@@ -455,6 +469,11 @@ docker compose up --build
 Submit an image for quality analysis and defect detection.
 
 ```bash
+# Live Cloud Production:
+curl -X POST https://pixelshamer-api.onrender.com/api/analyze \
+  -F "image=@/path/to/image.jpg"
+
+# Local Development:
 curl -X POST http://localhost:8000/api/analyze \
   -F "image=@/path/to/image.jpg"
 ```
@@ -514,7 +533,7 @@ curl -X POST http://localhost:8000/api/analyze \
 Retrieve paginated historical analysis records.
 
 ```bash
-curl "http://localhost:8000/api/results?page=1&limit=10"
+curl "https://pixelshamer-api.onrender.com/api/results?page=1&limit=10"
 ```
 
 ### GET /api/results/{id}
@@ -522,7 +541,7 @@ curl "http://localhost:8000/api/results?page=1&limit=10"
 Retrieve a single analysis record by ID.
 
 ```bash
-curl "http://localhost:8000/api/results/1"
+curl "https://pixelshamer-api.onrender.com/api/results/1"
 ```
 
 ### DELETE /api/results/{id}
@@ -530,7 +549,7 @@ curl "http://localhost:8000/api/results/1"
 Delete an analysis record and associated files.
 
 ```bash
-curl -X DELETE "http://localhost:8000/api/results/1"
+curl -X DELETE "https://pixelshamer-api.onrender.com/api/results/1"
 ```
 
 ### GET /api/health
@@ -538,7 +557,7 @@ curl -X DELETE "http://localhost:8000/api/results/1"
 System health and model load status check.
 
 ```bash
-curl http://localhost:8000/api/health
+curl https://pixelshamer-api.onrender.com/api/health
 ```
 
 ---
