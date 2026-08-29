@@ -10,7 +10,8 @@ import {
   HelpCircle,
   FileImage,
   Maximize2,
-  Terminal
+  Terminal,
+  Zap
 } from "lucide-react";
 import "./WalkthroughTour.css";
 

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from sqlalchemy import text, inspect
 from backend.app.db.session import engine, Base
 from backend.app.routers import analysis
 from backend.app.services.inference import inference_service
@@ -31,6 +32,23 @@ os.makedirs(os.path.join(UPLOAD_DIR, "heatmaps"), exist_ok=True)
 async def lifespan(app: FastAPI):
     logger.info("Initializing database tables...")
     Base.metadata.create_all(bind=engine)
+
+    # Automatic schema migration for existing deployments
+    try:
+        inspector = inspect(engine)
+        if "analysis_results" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("analysis_results")]
+            if "session_id" not in columns:
+                logger.info("Migrating database: adding missing 'session_id' column to 'analysis_results' table...")
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE analysis_results ADD COLUMN session_id VARCHAR(64)"))
+                    try:
+                        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_analysis_results_session_id ON analysis_results (session_id)"))
+                    except Exception:
+                        pass
+                logger.info("Database migration completed successfully.")
+    except Exception as e:
+        logger.warning(f"Auto-migration check encountered non-fatal error: {e}")
 
     logger.info("Loading PyTorch CV models into memory...")
     try:
@@ -74,10 +92,16 @@ app.include_router(analysis.router)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error processing {request.url.path}: {str(exc)}", exc_info=True)
-    return JSONResponse(
+    origin = request.headers.get("origin", "*")
+    response = JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error occurred during request processing."}
+        content={"detail": f"Internal server error: {str(exc)}"}
     )
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
 
 @app.api_route("/api/health", methods=["GET", "HEAD"], response_model=HealthResponse, tags=["System"])
 @app.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse, tags=["System"])
