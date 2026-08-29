@@ -46,3 +46,7 @@ ml/models/*_v2.json
 Thumbs.db
 .vscode/
 .idea/
+
+# Internal docs & plan
+implementation_plan.md
+Software_Internship_Assessment.md
