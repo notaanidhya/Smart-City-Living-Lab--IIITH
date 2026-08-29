@@ -79,8 +79,8 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": "Internal server error occurred during request processing."}
     )
 
-@app.get("/api/health", response_model=HealthResponse, tags=["System"])
-@app.get("/health", response_model=HealthResponse, tags=["System"])
+@app.api_route("/api/health", methods=["GET", "HEAD"], response_model=HealthResponse, tags=["System"])
+@app.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse, tags=["System"])
 async def health_check():
     """Health check endpoint exposing service readiness and model loading status."""
     return HealthResponse(
@@ -98,7 +98,7 @@ FRONTEND_DIST = os.getenv("FRONTEND_DIST", "")
 if FRONTEND_DIST and os.path.exists(FRONTEND_DIST):
     app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
 else:
-    @app.get("/", tags=["System"])
+    @app.api_route("/", methods=["GET", "HEAD"], tags=["System"])
     async def root():
         return {
             "message": "AI Image Quality & Defect Detection API is active.",
