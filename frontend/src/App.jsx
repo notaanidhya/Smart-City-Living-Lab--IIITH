@@ -6,7 +6,7 @@ import DiagnosticsPanel from "./components/DiagnosticsPanel";
 import MetricsMatrix from "./components/MetricsMatrix";
 import HistoryTable from "./components/HistoryTable";
 import WalkthroughTour from "./components/WalkthroughTour";
-import { analyzeImage } from "./api/client";
+import { analyzeImage, getPresetAnalysis } from "./api/client";
 import { AlertCircle, X } from "lucide-react";
 import "./App.css";
 
@@ -52,24 +52,44 @@ export default function App() {
     }
   };
 
-  const handleTourLoadPreset = async (presetId = "defect") => {
+  const handlePresetSelected = async (preset) => {
+    if (!preset) return;
+    setErrorMsg(null);
+    setPreviewUrl(preset.file);
+    setIsAnalyzing(true);
+
     try {
-      const presetFileMap = {
-        clean: "/samples/sample_pristine___clean.jpg",
-        defect: "/samples/sample_synthetic_defect.jpg",
-        blur: "/samples/sample_blur_defocus.jpg",
-        noise: "/samples/sample_gaussian_noise.jpg",
-      };
-      const filePath = presetFileMap[presetId] || "/samples/sample_synthetic_defect.jpg";
-      const response = await fetch(filePath);
-      if (!response.ok) throw new Error("Preset file not accessible");
-      const blob = await response.blob();
-      const filename = filePath.split("/").pop();
-      const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
-      handleFileSelected(file);
+      // 1. Fast path: load pre-computed telemetry directly from Neon DB (instant ~50ms)
+      const data = await getPresetAnalysis(preset.id);
+      setActiveResult(data);
     } catch (err) {
-      console.error("Failed to load tour preset:", err);
+      console.warn("Fast preset fetch failed, falling back to direct analysis...", err);
+      // Fallback: fetch blob and run standard analysis
+      try {
+        const response = await fetch(preset.file);
+        const blob = await response.blob();
+        const filename = preset.file.split("/").pop();
+        const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
+        const data = await analyzeImage(file);
+        setActiveResult(data);
+      } catch (fallbackErr) {
+        const detail = fallbackErr.response?.data?.detail || fallbackErr.message || "Failed to load preset.";
+        setErrorMsg(detail);
+      }
+    } finally {
+      setIsAnalyzing(false);
     }
+  };
+
+  const handleTourLoadPreset = async (presetId = "defect") => {
+    const presetFileMap = {
+      clean: { id: "clean", file: "/samples/sample_pristine___clean.jpg" },
+      defect: { id: "defect", file: "/samples/sample_synthetic_defect.jpg" },
+      blur: { id: "blur", file: "/samples/sample_blur_defocus.jpg" },
+      noise: { id: "noise", file: "/samples/sample_gaussian_noise.jpg" },
+    };
+    const targetPreset = presetFileMap[presetId] || presetFileMap["defect"];
+    handlePresetSelected(targetPreset);
   };
 
   return (
@@ -99,7 +119,11 @@ export default function App() {
         {activeTab === "workspace" ? (
           <div className="workspace-view">
             {/* Upload Zone & Benchmark Sample Loaders */}
-            <UploadZone onFileSelected={handleFileSelected} isAnalyzing={isAnalyzing} />
+            <UploadZone
+              onFileSelected={handleFileSelected}
+              onPresetSelected={handlePresetSelected}
+              isAnalyzing={isAnalyzing}
+            />
 
             {/* Split Screen Dual Workspace */}
             <div className="grid-2col workspace-grid">

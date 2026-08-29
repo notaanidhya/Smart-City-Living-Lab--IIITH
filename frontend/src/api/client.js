@@ -98,6 +98,12 @@ export const getResults = async (page = 1, limit = 10, qualityLabel = null, scop
   return response.data;
 };
 
+export const getPresetAnalysis = async (presetId) => {
+  const sid = getSessionId();
+  const response = await apiClient.get(`/api/presets/${presetId}?session_id=${encodeURIComponent(sid)}`);
+  return response.data;
+};
+
 export const getResultById = async (id) => {
   const response = await apiClient.get(`/api/results/${id}`);
   return response.data;

@@ -12,7 +12,7 @@ const PRESET_SAMPLES = [
   { id: "multi", label: "Multi-Degraded", file: "/samples/sample_multi-degradation.jpg", tag: "MULTI" },
 ];
 
-export default function UploadZone({ onFileSelected, isAnalyzing }) {
+export default function UploadZone({ onFileSelected, onPresetSelected, isAnalyzing }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [loadingPreset, setLoadingPreset] = useState(null);
   const fileInputRef = useRef(null);
@@ -65,12 +65,16 @@ export default function UploadZone({ onFileSelected, isAnalyzing }) {
     if (isAnalyzing) return;
     try {
       setLoadingPreset(preset.id);
-      const response = await fetch(preset.file);
-      if (!response.ok) throw new Error("Preset file not accessible");
-      const blob = await response.blob();
-      const filename = preset.file.split("/").pop();
-      const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
-      onFileSelected(file);
+      if (onPresetSelected) {
+        await onPresetSelected(preset);
+      } else {
+        const response = await fetch(preset.file);
+        if (!response.ok) throw new Error("Preset file not accessible");
+        const blob = await response.blob();
+        const filename = preset.file.split("/").pop();
+        const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
+        onFileSelected(file);
+      }
     } catch (err) {
       console.error("Failed to load preset:", err);
     } finally {

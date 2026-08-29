@@ -66,7 +66,43 @@ async def analyze_image_endpoint(
             detail="Corrupted or invalid image file. Header check failed."
         )
 
-    # 4. Execute AI / CV Inference Pipeline
+    # 4. Check for Pre-computed Benchmark Presets (Fast-path from Neon DB)
+    cached_benchmark = db.query(AnalysisRecord).filter(
+        AnalysisRecord.filename == filename,
+        AnalysisRecord.session_id == "benchmark_global"
+    ).first()
+
+    if cached_benchmark:
+        logger.info(f"Fast-path: serving cached benchmark preset for '{filename}' from Neon DB (0ms AI bypass).")
+        user_record = AnalysisRecord(
+            session_id=active_session,
+            filename=cached_benchmark.filename,
+            stored_filename=f"sess_{os.urandom(6).hex()}_{filename}",
+            quality_score=cached_benchmark.quality_score,
+            quality_label=cached_benchmark.quality_label,
+            issues=cached_benchmark.issues,
+            statistics=cached_benchmark.statistics,
+            image_url=cached_benchmark.image_url,
+            heatmap_url=cached_benchmark.heatmap_url
+        )
+        db.add(user_record)
+        db.commit()
+        db.refresh(user_record)
+
+        return AnalysisResponse(
+            id=user_record.id,
+            session_id=user_record.session_id,
+            filename=user_record.filename,
+            quality_score=user_record.quality_score,
+            quality_label=user_record.quality_label,
+            issues=user_record.issues,
+            statistics=user_record.statistics,
+            image_url=user_record.image_url,
+            heatmap_url=user_record.heatmap_url,
+            processed_at=user_record.upload_time
+        )
+
+    # 5. Execute Live AI / CV Inference Pipeline for Custom Uploads
     try:
         result = inference_service.analyze_image(
             image_bytes=content,
@@ -82,7 +118,7 @@ async def analyze_image_endpoint(
             detail="Error occurred during computer vision feature extraction and model inference."
         )
 
-    # 5. Persist to Database
+    # 6. Persist to Database
     db_record = AnalysisRecord(
         session_id=active_session,
         filename=result["filename"],
@@ -109,6 +145,73 @@ async def analyze_image_endpoint(
         image_url=db_record.image_url,
         heatmap_url=db_record.heatmap_url,
         processed_at=db_record.upload_time
+    )
+
+PRESET_FILENAME_MAP = {
+    "clean": "sample_pristine___clean.jpg",
+    "defect": "sample_synthetic_defect.jpg",
+    "blur": "sample_blur_defocus.jpg",
+    "underexp": "sample_underexposure.jpg",
+    "overexp": "sample_overexposure.jpg",
+    "noise": "sample_gaussian_noise.jpg",
+    "corrupt": "sample_jpeg_corruption.jpg",
+    "multi": "sample_multi-degradation.jpg",
+}
+
+@router.get("/presets/{preset_id}", response_model=AnalysisResponse)
+def get_preset_endpoint(
+    preset_id: str,
+    session_id: Optional[str] = Query(None),
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    db: Session = Depends(get_db)
+):
+    """Instantly fetches pre-computed benchmark telemetry for preset samples directly from Neon DB."""
+    active_session = session_id or x_session_id or "default_session"
+    target_filename = PRESET_FILENAME_MAP.get(preset_id.lower()) or preset_id
+    if not target_filename.endswith(".jpg") and not target_filename.endswith(".png"):
+        target_filename = f"{target_filename}.jpg"
+
+    record = db.query(AnalysisRecord).filter(
+        AnalysisRecord.filename == target_filename,
+        AnalysisRecord.session_id == "benchmark_global"
+    ).first()
+
+    if not record:
+        record = db.query(AnalysisRecord).filter(AnalysisRecord.filename == target_filename).first()
+
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Benchmark preset '{preset_id}' not found in Neon DB."
+        )
+
+    # Save to user session audit trail
+    user_record = AnalysisRecord(
+        session_id=active_session,
+        filename=record.filename,
+        stored_filename=f"sess_{os.urandom(6).hex()}_{record.filename}",
+        quality_score=record.quality_score,
+        quality_label=record.quality_label,
+        issues=record.issues,
+        statistics=record.statistics,
+        image_url=record.image_url,
+        heatmap_url=record.heatmap_url
+    )
+    db.add(user_record)
+    db.commit()
+    db.refresh(user_record)
+
+    return AnalysisResponse(
+        id=user_record.id,
+        session_id=user_record.session_id,
+        filename=user_record.filename,
+        quality_score=user_record.quality_score,
+        quality_label=user_record.quality_label,
+        issues=user_record.issues,
+        statistics=user_record.statistics,
+        image_url=user_record.image_url,
+        heatmap_url=user_record.heatmap_url,
+        processed_at=user_record.upload_time
     )
 
 @router.get("/results", response_model=PaginatedResultsResponse)
