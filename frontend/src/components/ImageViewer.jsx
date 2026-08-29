@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Eye, Layers, Sliders, Image, Sparkles, Maximize2 } from "lucide-react";
-import { getAssetUrl } from "../api/client";
+import { getAssetUrl, formatLocalTimestamp } from "../api/client";
 
 export default function ImageViewer({ result, previewUrl }) {
   const [viewMode, setViewMode] = useState("overlay"); // "original", "heatmap", "overlay"
@@ -96,7 +96,7 @@ export default function ImageViewer({ result, previewUrl }) {
             {result?.processed_at && (
               <span className="meta-item">
                 <span className="text-muted">ANALYZED:</span>{" "}
-                {new Date(result.processed_at).toLocaleTimeString()}
+                {formatLocalTimestamp(result.processed_at, "time")}
               </span>
             )}
           </div>

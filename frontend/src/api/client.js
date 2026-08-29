@@ -17,6 +17,43 @@ const apiClient = axios.create({
   timeout: 45000,
 });
 
+export const getSessionId = () => {
+  if (typeof window === "undefined") return "anon_session";
+  let sid = localStorage.getItem("smart_city_session_id");
+  if (!sid) {
+    sid = `sess_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
+    localStorage.setItem("smart_city_session_id", sid);
+  }
+  return sid;
+};
+
+// Automatically attach session header for client isolation
+apiClient.interceptors.request.use((config) => {
+  config.headers["X-Session-ID"] = getSessionId();
+  return config;
+});
+
+export const formatLocalTimestamp = (isoString, type = "time") => {
+  if (!isoString) return "—";
+  let clean = String(isoString);
+  if (!clean.endsWith("Z") && !clean.includes("+") && !clean.slice(10).includes("-")) {
+    clean = `${clean}Z`;
+  }
+  const d = new Date(clean);
+  if (isNaN(d.getTime())) return isoString;
+  
+  if (type === "time") {
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  }
+  return d.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+};
+
 export const getAssetUrl = (path) => {
   if (!path) return null;
   if (path.startsWith("http://") || path.startsWith("https://")) {
@@ -45,8 +82,8 @@ export const analyzeImage = async (file) => {
   return response.data;
 };
 
-export const getResults = async (page = 1, limit = 10, qualityLabel = null) => {
-  const params = { page, limit };
+export const getResults = async (page = 1, limit = 10, qualityLabel = null, scope = "session") => {
+  const params = { page, limit, scope };
   if (qualityLabel && qualityLabel !== "ALL") {
     params.quality_label = qualityLabel;
   }

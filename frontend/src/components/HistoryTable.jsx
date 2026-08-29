@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { History, Search, Trash2, Eye, RefreshCw, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
-import { getResults, deleteResult, getAssetUrl } from "../api/client";
+import { History, Search, Trash2, Eye, RefreshCw, ChevronLeft, ChevronRight, AlertCircle, User, Globe } from "lucide-react";
+import { getResults, deleteResult, getAssetUrl, formatLocalTimestamp } from "../api/client";
 import DetailModal from "./DetailModal";
 
 const FILTER_TABS = ["ALL", "ACCEPTABLE", "DEGRADED", "DEFECTIVE"];
@@ -12,6 +12,7 @@ export default function HistoryTable() {
   const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [filterLabel, setFilterLabel] = useState("ALL");
+  const [scope, setScope] = useState("session"); // "session" or "global"
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -20,7 +21,7 @@ export default function HistoryTable() {
   const fetchHistory = async () => {
     setIsLoading(true);
     try {
-      const data = await getResults(page, limit, filterLabel);
+      const data = await getResults(page, limit, filterLabel, scope);
       setItems(data.items || []);
       setTotal(data.total || 0);
       setTotalPages(data.pages || 1);
@@ -33,7 +34,7 @@ export default function HistoryTable() {
 
   useEffect(() => {
     fetchHistory();
-  }, [page, filterLabel]);
+  }, [page, filterLabel, scope]);
 
   const handleDelete = async (id, e) => {
     e.stopPropagation();
@@ -58,7 +59,35 @@ export default function HistoryTable() {
     <div className="history-section">
       <div className="workbench-panel">
         {/* Table Controls Bar */}
-        <div className="history-controls-bar">
+        <div className="history-controls-bar" style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", justifyContent: "space-between", alignItems: "center" }}>
+          {/* Scope Selector: My Session vs Global Feed */}
+          <div className="filter-tabs-group mono" style={{ display: "flex", gap: "0.25rem" }}>
+            <button
+              className={`filter-tab ${scope === "session" ? "active" : ""}`}
+              onClick={() => {
+                setScope("session");
+                setPage(1);
+              }}
+              title="Show records analyzed in your current browser session"
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+            >
+              <User size={13} />
+              <span>My Session</span>
+            </button>
+            <button
+              className={`filter-tab ${scope === "global" ? "active" : ""}`}
+              onClick={() => {
+                setScope("global");
+                setPage(1);
+              }}
+              title="Show all benchmark & historical records across all sessions"
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
+            >
+              <Globe size={13} />
+              <span>Global Feed</span>
+            </button>
+          </div>
+
           {/* Status Filter Tabs (Square tabs) */}
           <div className="filter-tabs-group mono">
             {FILTER_TABS.map((tab) => (
@@ -167,7 +196,7 @@ export default function HistoryTable() {
                     </td>
                     <td>
                       <span className="text-secondary text-sm">
-                        {row.processed_at ? new Date(row.processed_at).toLocaleString() : "—"}
+                        {row.processed_at ? formatLocalTimestamp(row.processed_at, "full") : "—"}
                       </span>
                     </td>
                     <td style={{ textAlign: "right" }}>

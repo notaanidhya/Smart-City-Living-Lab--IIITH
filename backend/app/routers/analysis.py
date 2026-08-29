@@ -2,7 +2,7 @@ import os
 import io
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Query, Header, status
 from sqlalchemy.orm import Session
 from PIL import Image
 
@@ -22,6 +22,7 @@ UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join(os.path.dirname(os.path.dirnam
 @router.post("/analyze", response_model=AnalysisResponse, status_code=status.HTTP_201_CREATED)
 async def analyze_image_endpoint(
     image: UploadFile = File(..., description="Image file to analyze (JPEG, PNG, WEBP, BMP)"),
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     db: Session = Depends(get_db)
 ):
     """
@@ -80,6 +81,7 @@ async def analyze_image_endpoint(
 
     # 5. Persist to Database
     db_record = AnalysisRecord(
+        session_id=x_session_id or "default_session",
         filename=result["filename"],
         stored_filename=result["stored_filename"],
         quality_score=result["quality_score"],
@@ -95,6 +97,7 @@ async def analyze_image_endpoint(
 
     return AnalysisResponse(
         id=db_record.id,
+        session_id=db_record.session_id,
         filename=db_record.filename,
         quality_score=db_record.quality_score,
         quality_label=db_record.quality_label,
@@ -110,10 +113,14 @@ def list_results(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(10, ge=1, le=100, description="Items per page"),
     quality_label: Optional[str] = Query(None, description="Filter by quality label (ACCEPTABLE, DEGRADED, DEFECTIVE)"),
+    scope: str = Query("session", description="Filter by 'session' (user private history) or 'global' (all history)"),
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     db: Session = Depends(get_db)
 ):
     """Retrieves paginated history of previous image evaluations."""
     query = db.query(AnalysisRecord)
+    if scope == "session" and x_session_id:
+        query = query.filter(AnalysisRecord.session_id == x_session_id)
     if quality_label:
         query = query.filter(AnalysisRecord.quality_label == quality_label.upper())
 
@@ -126,6 +133,7 @@ def list_results(
     items = [
         AnalysisResponse(
             id=r.id,
+            session_id=r.session_id,
             filename=r.filename,
             quality_score=round(r.quality_score, 1),
             quality_label=r.quality_label,

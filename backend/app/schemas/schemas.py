@@ -10,6 +10,7 @@ class IssueDetail(BaseModel):
 
 class AnalysisResponse(BaseModel):
     id: Optional[int] = None
+    session_id: Optional[str] = None
     filename: str
     quality_score: float = Field(..., ge=0.0, le=100.0, description="Overall quality score (0-100)")
     quality_label: str = Field(..., description="ACCEPTABLE, DEGRADED, or DEFECTIVE")
