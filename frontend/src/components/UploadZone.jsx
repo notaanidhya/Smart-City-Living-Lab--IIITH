@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { UploadCloud, FileImage, Sparkles, Loader2, ImagePlus } from "lucide-react";
+import { UploadCloud, FileImage, Loader2, ImagePlus } from "lucide-react";
 
 const PRESET_SAMPLES = [
   { id: "clean", label: "Pristine Clean", file: "/samples/sample_pristine___clean.jpg", tag: "NOMINAL" },

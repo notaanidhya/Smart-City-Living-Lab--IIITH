@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Sparkles,
   Layers,
   Sliders,
   Activity,
@@ -8,10 +7,10 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
-  Zap,
   HelpCircle,
   FileImage,
-  Maximize2
+  Maximize2,
+  Terminal
 } from "lucide-react";
 import "./WalkthroughTour.css";
 
@@ -379,7 +378,7 @@ export default function WalkthroughTour({
 
         {/* Title & Subtitle */}
         <div className="tour-title mono">
-          {step.id === "welcome" ? <Sparkles size={18} className="text-highlight" /> : <Zap size={16} className="text-highlight" />}
+          <Terminal size={15} className="text-highlight" />
           <span>{step.title}</span>
         </div>
         {step.subtitle && (

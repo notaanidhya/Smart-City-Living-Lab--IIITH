@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Eye, Layers, Sliders, Image, Sparkles, Maximize2 } from "lucide-react";
+import { Eye, Layers, Sliders, Image, Maximize2 } from "lucide-react";
 import { getAssetUrl, formatLocalTimestamp } from "../api/client";
 
 export default function ImageViewer({ result, previewUrl }) {
