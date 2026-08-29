@@ -1,4 +1,4 @@
-# AI Image Quality and Defect Detection System
+# PixelShamer — AI Image Quality & Defect Detection System
 
 [![Live Demo](https://img.shields.io/badge/Live%20App-pixel--shamer.vercel.app-000000.svg?style=for-the-badge&logo=Vercel&logoColor=white)](https://pixel-shamer.vercel.app/)
 [![API Live](https://img.shields.io/badge/API%20Docs-pixelshamer--api.onrender.com-46E3B7.svg?style=for-the-badge&logo=Render&logoColor=white)](https://pixelshamer-api.onrender.com/docs)
@@ -9,7 +9,7 @@
 [![Tests](https://img.shields.io/badge/Tests-10%2F10%20Passing-brightgreen.svg)](backend/tests)
 [![ROC-AUC](https://img.shields.io/badge/Macro%20ROC--AUC-94.8%25-blue.svg)](#6-evaluation-results)
 
-A production-grade full-stack AI and Computer Vision system that evaluates digital image quality, diagnoses multi-label degradation families, detects anomalous physical defects without supervision, and delivers interpretable spatial explanations through interactive reconstruction heatmaps. Built purely on local inference with no external vision APIs.
+**PixelShamer** is an industrial-grade full-stack AI and Computer Vision system that evaluates digital image visual quality, diagnoses multi-label degradation families, detects anomalous physical defects without supervision, and delivers interpretable spatial explanations through interactive reconstruction heatmaps. Built purely on local inference with no external vision APIs.
 
 ---
 
