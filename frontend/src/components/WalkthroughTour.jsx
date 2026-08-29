@@ -19,6 +19,7 @@ const TOUR_STEPS = [
   {
     id: "welcome",
     targetId: null, // Center modal
+    placement: "center",
     title: "SYSTEM INITIALIZATION",
     subtitle: "PixelShamer • Hybrid AI Quality & Defect Detection",
     description: (
@@ -37,6 +38,7 @@ const TOUR_STEPS = [
   {
     id: "presets",
     targetId: "tour-preset-chips",
+    placement: "bottom",
     title: "BENCHMARK PRESET CHIPS",
     subtitle: "Instant Testing Without File Uploads",
     description: (
@@ -57,6 +59,7 @@ const TOUR_STEPS = [
   {
     id: "dropzone",
     targetId: "tour-dropzone",
+    placement: "bottom",
     title: "STREAM & FILE INGESTION",
     subtitle: "Drag & Drop, Browse, or Clipboard Paste",
     description: (
@@ -73,6 +76,7 @@ const TOUR_STEPS = [
   {
     id: "viewport",
     targetId: "tour-viewport",
+    placement: "right",
     title: "3-MODE SPATIAL COMPARATOR",
     subtitle: "Original, Jet Overlay & Raw Heatmap",
     description: (
@@ -95,6 +99,7 @@ const TOUR_STEPS = [
   {
     id: "diagnostics",
     targetId: "tour-diagnostics",
+    placement: "left",
     title: "CONTINUOUS SCORE & TRIAGE",
     subtitle: "PCHIP Calibration & Compound Penalty",
     description: (
@@ -111,6 +116,7 @@ const TOUR_STEPS = [
   {
     id: "metrics",
     targetId: "tour-metrics-matrix",
+    placement: "top",
     title: "22-METRIC TELEMETRY MATRIX",
     subtitle: "Deterministic Computer Vision Diagnostics",
     description: (
@@ -127,6 +133,7 @@ const TOUR_STEPS = [
   {
     id: "history",
     targetId: "tour-history-nav",
+    placement: "bottom",
     title: "AUDIT TRAIL & PRIVACY",
     subtitle: "Session Isolation & Global Feed",
     description: (
@@ -175,7 +182,6 @@ export default function WalkthroughTour({
 
     const el = document.getElementById(step.targetId);
     if (!el) {
-      // If target element is not in DOM, center popover
       setTargetRect(null);
       setPopoverPos({
         top: "50%",
@@ -186,13 +192,11 @@ export default function WalkthroughTour({
       return;
     }
 
-    // Scroll target into view if needed
-    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    // Scroll target into view
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
 
     const rect = el.getBoundingClientRect();
     const padding = 8;
-    const scrollX = window.scrollX || 0;
-    const scrollY = window.scrollY || 0;
 
     setTargetRect({
       top: rect.top - padding,
@@ -201,40 +205,50 @@ export default function WalkthroughTour({
       height: rect.height + padding * 2,
     });
 
-    // Calculate smart popover position
     const popoverWidth = 420;
-    const popoverHeight = 320;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const spaceRight = window.innerWidth - rect.right;
+    const popoverHeight = 350;
+    const placement = step.placement || "bottom";
 
-    let top = 0;
-    let left = 0;
-
-    if (spaceBelow >= popoverHeight + 20) {
-      // Place below
-      top = rect.bottom + 16;
-      left = Math.max(16, Math.min(window.innerWidth - popoverWidth - 16, rect.left));
-    } else if (spaceAbove >= popoverHeight + 20) {
-      // Place above
-      top = rect.top - popoverHeight - 16;
-      left = Math.max(16, Math.min(window.innerWidth - popoverWidth - 16, rect.left));
-    } else if (spaceRight >= popoverWidth + 20) {
-      // Place to right
-      top = Math.max(16, rect.top);
-      left = rect.right + 16;
-    } else {
-      // Fallback center
-      top = Math.max(16, (window.innerHeight - popoverHeight) / 2);
-      left = Math.max(16, (window.innerWidth - popoverWidth) / 2);
+    // Desktop 2-column layout checks (no overlap)
+    if (window.innerWidth >= 960) {
+      if (placement === "left") {
+        // Place strictly to the LEFT of the target panel (e.g. over viewport)
+        let left = rect.left - popoverWidth - 24;
+        if (left < 16) left = 16;
+        let top = Math.max(16, Math.min(window.innerHeight - popoverHeight - 16, rect.top + 20));
+        setPopoverPos({ top: `${top}px`, left: `${left}px`, transform: "none", position: "fixed" });
+        return;
+      } else if (placement === "right") {
+        // Place strictly to the RIGHT of the target panel (e.g. over diagnostics)
+        let left = rect.right + 24;
+        if (left + popoverWidth > window.innerWidth - 16) left = window.innerWidth - popoverWidth - 16;
+        let top = Math.max(16, Math.min(window.innerHeight - popoverHeight - 16, rect.top + 20));
+        setPopoverPos({ top: `${top}px`, left: `${left}px`, transform: "none", position: "fixed" });
+        return;
+      } else if (placement === "top") {
+        // Place strictly ABOVE the target panel (e.g. above metrics matrix)
+        let top = rect.top - popoverHeight - 24;
+        if (top < 16) top = 16;
+        let left = Math.max(16, Math.min(window.innerWidth - popoverWidth - 16, rect.left + (rect.width - popoverWidth) / 2));
+        setPopoverPos({ top: `${top}px`, left: `${left}px`, transform: "none", position: "fixed" });
+        return;
+      } else if (placement === "bottom") {
+        // Place strictly BELOW the target panel (e.g. below presets)
+        let top = rect.bottom + 20;
+        if (top + popoverHeight > window.innerHeight - 16) top = window.innerHeight - popoverHeight - 16;
+        let left = Math.max(16, Math.min(window.innerWidth - popoverWidth - 16, rect.left + (rect.width - popoverWidth) / 2));
+        setPopoverPos({ top: `${top}px`, left: `${left}px`, transform: "none", position: "fixed" });
+        return;
+      }
     }
 
-    setPopoverPos({
-      top: `${top}px`,
-      left: `${left}px`,
-      transform: "none",
-      position: "fixed",
-    });
+    // Small screen / mobile fallback
+    let top = rect.bottom + 16;
+    if (top + popoverHeight > window.innerHeight - 16) {
+      top = Math.max(16, rect.top - popoverHeight - 16);
+    }
+    let left = Math.max(16, (window.innerWidth - popoverWidth) / 2);
+    setPopoverPos({ top: `${top}px`, left: `${left}px`, transform: "none", position: "fixed" });
   };
 
   useEffect(() => {
