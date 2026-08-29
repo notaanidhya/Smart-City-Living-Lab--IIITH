@@ -19,7 +19,7 @@ export default function ImageViewer({ result, previewUrl }) {
   };
 
   return (
-    <div className="workbench-panel image-viewer-panel">
+    <div className="workbench-panel image-viewer-panel" id="tour-viewport">
       <div className="panel-header">
         <div className="panel-title">
           <Layers size={15} />

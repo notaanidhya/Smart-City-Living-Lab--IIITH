@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "./components/Header";
 import UploadZone from "./components/UploadZone";
 import ImageViewer from "./components/ImageViewer";
 import DiagnosticsPanel from "./components/DiagnosticsPanel";
 import MetricsMatrix from "./components/MetricsMatrix";
 import HistoryTable from "./components/HistoryTable";
+import WalkthroughTour from "./components/WalkthroughTour";
 import { analyzeImage } from "./api/client";
 import { AlertCircle, X } from "lucide-react";
 import "./App.css";
@@ -15,6 +16,20 @@ export default function App() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [isTourOpen, setIsTourOpen] = useState(false);
+
+  // Auto-launch walkthrough for first-time visitors
+  useEffect(() => {
+    try {
+      const hasSeenTour = localStorage.getItem("pixelshamer_tour_seen");
+      if (!hasSeenTour) {
+        const timer = setTimeout(() => {
+          setIsTourOpen(true);
+        }, 800);
+        return () => clearTimeout(timer);
+      }
+    } catch (e) {}
+  }, []);
 
   const handleFileSelected = async (file) => {
     if (!file) return;
@@ -37,10 +52,34 @@ export default function App() {
     }
   };
 
+  const handleTourLoadPreset = async (presetId = "defect") => {
+    try {
+      const presetFileMap = {
+        clean: "/samples/sample_pristine___clean.jpg",
+        defect: "/samples/sample_synthetic_defect.jpg",
+        blur: "/samples/sample_blur_defocus.jpg",
+        noise: "/samples/sample_gaussian_noise.jpg",
+      };
+      const filePath = presetFileMap[presetId] || "/samples/sample_synthetic_defect.jpg";
+      const response = await fetch(filePath);
+      if (!response.ok) throw new Error("Preset file not accessible");
+      const blob = await response.blob();
+      const filename = filePath.split("/").pop();
+      const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
+      handleFileSelected(file);
+    } catch (err) {
+      console.error("Failed to load tour preset:", err);
+    }
+  };
+
   return (
     <div className="app-container">
       {/* Header with Navigation and Live Health Status */}
-      <Header activeTab={activeTab} onTabChange={setActiveTab} />
+      <Header
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onStartTour={() => setIsTourOpen(true)}
+      />
 
       <main className="main-content">
         {/* Global Error Banner */}
@@ -86,6 +125,14 @@ export default function App() {
           <HistoryTable />
         )}
       </main>
+
+      {/* Interactive Walkthrough Tour */}
+      <WalkthroughTour
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        onSwitchTab={setActiveTab}
+        onLoadPreset={handleTourLoadPreset}
+      />
     </div>
   );
 }

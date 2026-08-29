@@ -65,7 +65,7 @@ export default function MetricsMatrix({ statistics }) {
   };
 
   return (
-    <div className="workbench-panel metrics-panel">
+    <div className="workbench-panel metrics-panel" id="tour-metrics-matrix">
       <button className="metrics-toggle-header" onClick={() => setIsOpen(!isOpen)}>
         <div className="panel-title">
           <BarChart2 size={15} />

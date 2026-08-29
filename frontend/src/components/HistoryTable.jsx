@@ -56,7 +56,7 @@ export default function HistoryTable() {
   );
 
   return (
-    <div className="history-section">
+    <div className="history-section" id="tour-history-table">
       <div className="workbench-panel">
         {/* Table Controls Bar */}
         <div className="history-controls-bar" style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", justifyContent: "space-between", alignItems: "center" }}>

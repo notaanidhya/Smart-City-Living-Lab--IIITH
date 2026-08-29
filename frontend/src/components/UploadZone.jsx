@@ -82,6 +82,7 @@ export default function UploadZone({ onFileSelected, isAnalyzing }) {
     <div className="upload-section">
       {/* Primary Drop Target */}
       <div
+        id="tour-dropzone"
         className={`dropzone-box ${isDragOver ? "drag-active" : ""} ${isAnalyzing ? "analyzing-active" : ""}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -120,7 +121,7 @@ export default function UploadZone({ onFileSelected, isAnalyzing }) {
       </div>
 
       {/* 1-Click Preset Samples Matrix */}
-      <div className="preset-bar">
+      <div className="preset-bar" id="tour-preset-chips">
         <div className="preset-header mono">
           <FileImage size={13} className="text-secondary" />
           <span>Quick Benchmark Presets:</span>

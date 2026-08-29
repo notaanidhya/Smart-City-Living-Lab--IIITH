@@ -4,7 +4,7 @@ import { Gauge, AlertTriangle, CheckCircle2, XCircle, ShieldAlert, Cpu } from "l
 export default function DiagnosticsPanel({ result, isAnalyzing }) {
   if (isAnalyzing) {
     return (
-      <div className="workbench-panel diagnostics-panel">
+      <div className="workbench-panel diagnostics-panel" id="tour-diagnostics">
         <div className="panel-header">
           <div className="panel-title">
             <Cpu size={15} className="spin text-highlight" />
@@ -22,7 +22,7 @@ export default function DiagnosticsPanel({ result, isAnalyzing }) {
 
   if (!result) {
     return (
-      <div className="workbench-panel diagnostics-panel">
+      <div className="workbench-panel diagnostics-panel" id="tour-diagnostics">
         <div className="panel-header">
           <div className="panel-title">
             <Gauge size={15} />
@@ -55,7 +55,7 @@ export default function DiagnosticsPanel({ result, isAnalyzing }) {
   };
 
   return (
-    <div className="workbench-panel diagnostics-panel">
+    <div className="workbench-panel diagnostics-panel" id="tour-diagnostics">
       <div className="panel-header">
         <div className="panel-title">
           <Gauge size={15} />

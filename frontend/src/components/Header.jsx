@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Activity, Layers, History, ShieldCheck, AlertCircle, RefreshCw } from "lucide-react";
+import { Activity, Layers, History, ShieldCheck, AlertCircle, RefreshCw, HelpCircle } from "lucide-react";
 import { checkHealth } from "../api/client";
 
-export default function Header({ activeTab, onTabChange }) {
+export default function Header({ activeTab, onTabChange, onStartTour }) {
   const [health, setHealth] = useState({ status: "checking", models_loaded: false, latency: null });
 
   const fetchHealth = async () => {
@@ -43,10 +43,11 @@ export default function Header({ activeTab, onTabChange }) {
         </div>
 
         {/* View Switcher Tabs (Square / Tabbed - No generic pills) */}
-        <nav className="header-nav">
+        <nav className="header-nav" id="tour-nav-tabs">
           <button
             className={`nav-tab ${activeTab === "workspace" ? "active" : ""}`}
             onClick={() => onTabChange("workspace")}
+            id="tour-workspace-nav"
           >
             <Activity size={15} />
             <span>Inspection Workbench</span>
@@ -54,11 +55,23 @@ export default function Header({ activeTab, onTabChange }) {
           <button
             className={`nav-tab ${activeTab === "history" ? "active" : ""}`}
             onClick={() => onTabChange("history")}
+            id="tour-history-nav"
           >
             <History size={15} />
             <span>Audit History</span>
           </button>
         </nav>
+
+        {/* Guided Tour Trigger Button */}
+        <button
+          className="btn btn-secondary btn-sm mono tour-launch-btn"
+          onClick={onStartTour}
+          title="Launch Interactive Guided Tour"
+          style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.4rem 0.75rem", fontSize: "0.78rem" }}
+        >
+          <HelpCircle size={14} className="text-highlight" />
+          <span>Guided Tour</span>
+        </button>
 
         {/* System Telemetry & Health */}
         <div className="header-status">
